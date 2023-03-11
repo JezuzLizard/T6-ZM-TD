@@ -219,7 +219,7 @@ startturretdeploy( weapon )
         turret setconvergencetime( 0.3 );
         turret setturretteam( self.team );
         turret.team = self.team;
-        turret.damage_own_team = 1;
+        turret.damage_own_team = false;
         turret.turret_active = 1;
         weapon.turret = turret;
         self.turret = turret;
