@@ -156,26 +156,28 @@ burst_fire( turret, manual_target )
 	}
 }
 
+get_targets()
+{
+	targets = getaiarray(level.zombie_team);
+	return targets;
+}
+
 get_target()
 {
-	self endon( "death" );
+	self endon("death");
 
-	while ( true )
+	while (true)
 	{
 		wait 0.05;
-		targets = getAIArray( level.zombie_team );
-		if ( !isDefined( targets ) || targets.size <= 0 )
+		targets = self get_targets();
+		if (!isdefined(targets) || targets.size <= 0)
 		{
+			self cleartargetentity();
 			continue;
 		}
-		random_target = targets[ randomInt( targets.size ) ];
-		self cleartargetentity();
-		self settargetentity( random_target );
-		self print_turret_info();
-		while ( isAlive( random_target ) )
-		{
-			wait 0.05;
-		}
+
+		target = maps\mp\_utility::getclosest(targets);
+		self settargetentity(target);
 	}
 }
 

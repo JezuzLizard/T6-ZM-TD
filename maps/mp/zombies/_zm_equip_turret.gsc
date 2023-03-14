@@ -175,6 +175,28 @@ transferturret( fromplayer, toplayer )
 	fromplayer.turret_health = turret_health;
 }
 
+delete_turret_weapon(model)
+{
+	while (isdefined(self))
+	{
+		wait 0.05;
+	}
+
+	model delete();
+}
+
+add_turret_weapon(weapon)
+{
+	self hidepart("tag_aim");
+	self hidepart("tag_part_02");
+
+	model = spawn("script_model", self.origin + (-1, 0, 48));
+	model setmodel(getweaponmodel(level.custom_turret_weapon));
+	model linkto(self, "tag_aim");
+
+	self thread delete_turret_weapon(model);
+}
+
 startturretdeploy( weapon )
 {
 	self endon( "death" );
@@ -220,6 +242,7 @@ startturretdeploy( weapon )
 		turret setmodel( "p6_anim_zm_buildable_turret" );
 		//turret attach
 		//turret setModel( "t6_wpn_zmb_raygun_world" );
+		turret add_turret_weapon(level.custom_turret_weapon);
 		turret.origin = weapon.origin;
 		turret.angles = weapon.angles;
 		turret linkto( weapon );
@@ -231,10 +254,10 @@ startturretdeploy( weapon )
 		turret setmode( "auto_nonai" );
 		turret setdefaultdroppitch( 45.0 );
 		turret setconvergencetime( 0.3 );
-		turret setTopArc(45);
-		turret setRightArc(90);
-		turret setBottomArc(45);
-		turret setLeftArc(90);
+		turret setTopArc(180);
+		turret setRightArc(180);
+		turret setBottomArc(180);
+		turret setLeftArc(180);
 		turret setAiSpread(2);
 		turret setPlayerSpread(2);
 		/*
@@ -249,10 +272,6 @@ startturretdeploy( weapon )
 		turret setTurretField( "firesnd", 69 );
 		turret setTurretField( "turretrotatestate", 0 );
 		*/
-		turret setTurretField( "arcmin[0]", -45.0 );
-		turret setTurretField( "arcmin[1]", -90.0 );
-		turret setTurretField( "arcmax[0]", 45.0 );
-		turret setTurretField( "arcmax[1]", 90.0 );
 		turret setTurretField( "initialYawmin", -90.0 );
 		turret setTurretField( "initialYawmax", 90.0 );
 		turret setTurretField( "forwardangledot", -1.0 );
