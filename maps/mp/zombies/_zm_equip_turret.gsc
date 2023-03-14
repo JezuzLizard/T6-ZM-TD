@@ -206,11 +206,13 @@ startturretdeploy( weapon )
 		if ( isDefined( level.custom_turret_weapon ) )
 		{
 			turret = spawnTurret( "misc_turret", weapon.origin, level.custom_turret_weapon );
+			turret.currentweapon == level.custom_turret_weapon;
 			dumpTurret( turret, level.custom_turret_weapon );
 		}
 		else 
 		{
 			turret = spawnturret( "misc_turret", weapon.origin, "zombie_bullet_crouch_zm" );
+			turret.currentweapon = "zombie_bullet_crouch_zm";
 			dumpTurret( turret, "zombie_bullet_crouch_zm" );
 		}
 		turret.turrettype = "sentry";
