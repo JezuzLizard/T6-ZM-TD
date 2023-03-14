@@ -577,12 +577,13 @@ equipment_retrieve( player )
 		}
 		else
 		{
+			/*
 			if ( player != original_owner )
 			{
 				equipment_transfer( weaponname, original_owner, player );
 				self.owner = player;
 			}
-
+			*/
 			player equipment_from_deployed( weaponname );
 		}
 
@@ -929,7 +930,9 @@ can_pick_up_equipment( equipment_name, equipment_trigger )
 
 	if ( isdefined( level.equipment_team_pick_up ) && level.equipment_team_pick_up && !self same_team_placed_equipment( equipment_trigger ) )
 		return false;
-
+		
+	if ( isdefined( equipment_trigger.stub.model.owner ) && equipment_trigger.stub.model.owner != self )
+		return false;
 	return true;
 }
 

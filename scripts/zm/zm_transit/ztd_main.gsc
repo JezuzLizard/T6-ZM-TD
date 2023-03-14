@@ -12,6 +12,7 @@ main()
 {
 	replaceFunc( maps\mp\zombies\_zm_utility::spawn_zombie, ::spawn_zombie_override );
 	replaceFunc( maps\mp\zombies\_zm_spawner::zombie_death_points, ::zombie_death_points_override );
+	replaceFunc( maps\mp\zombies\_zm_utility::has_deployed_equipment, ::has_deployed_equipment_override );
 	level thread on_player_connect();
 	level thread command_thread();
 }
@@ -232,4 +233,9 @@ zombie_devgui_equipment_give( equipment )
 {
 	if ( maps\mp\zombies\_zm_equipment::is_equipment_included( equipment ) )
 		self maps\mp\zombies\_zm_equipment::equipment_buy( equipment );
+}
+
+has_deployed_equipment_override( weaponname )
+{
+	return false;
 }

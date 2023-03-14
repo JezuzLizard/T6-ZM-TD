@@ -176,7 +176,7 @@ get_target()
 			continue;
 		}
 
-		target = maps\mp\_utility::getclosest(targets);
+		target = maps\mp\_utility::getclosest(self.origin, targets, undefined);
 		self settargetentity(target);
 	}
 }
@@ -184,10 +184,12 @@ get_target()
 print_turret_info()
 {
 	data = [];
+	/*
 	data[ "inuse" ] = self getTurretField( "inuse" );
 	data[ "state" ] = self getTurretField( "state" );
 	data[ "flags" ] = self getTurretField( "flags" );
 	data[ "firetime" ] = self getTurretField( "firetime" );
+	*/
 }
 
 burst_fire_unmanned()
@@ -248,11 +250,11 @@ burst_fire_unmanned()
 				dumped = true;
 				if ( isDefined( level.custom_turret_weapon ) )
 				{
-					dumpTurret( turret, level.custom_turret_weapon + "_inuse" );
+					dumpTurret( self, level.custom_turret_weapon + "_inuse" );
 				}
 				else 
 				{
-					dumpTurret( turret, "zombie_bullet_crouch_zm_inuse" );
+					dumpTurret( self, "zombie_bullet_crouch_zm_inuse" );
 				}
 			}
 			self waittill( "turretstatechange" );
