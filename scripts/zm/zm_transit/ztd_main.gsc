@@ -81,7 +81,7 @@ ztd_on_damage()
 	self endon( "death" );
 	while ( true )
 	{ 
-		self waittill( "damage", amount, inflictor, direction, point, mod, tagname, modelname, partname, weaponname, idflags );
+		self waittill( "damage", amount, attacker, direction, point, mod, tagname, modelname, partname, weaponname, idflags );
 		if ( !isDefined( attacker ) )
 		{
 			continue;
@@ -108,7 +108,7 @@ ztd_actor_killed( einflictor, attacker, idamage, smeansofdeath, sweapon, vdir, s
 }
 */
 
-zombie_death_points( origin, mod, hit_location, attacker, zombie, team )
+zombie_death_points_override( origin, mod, hit_location, attacker, zombie, team )
 {
 	if ( !isdefined( attacker ) )
 		return;
@@ -154,6 +154,7 @@ zombie_death_points( origin, mod, hit_location, attacker, zombie, team )
 	else if ( isSubStr( attacker.classname, "turret" ) && isDefined( attacker.owner ) )
 	{
 		attacker.owner maps\mp\zombies\_zm_score::player_add_points( event, mod, hit_location, undefined, team, attacker.currentweapon );
+		attacker.owner.kills++;
 	}
 }
 
