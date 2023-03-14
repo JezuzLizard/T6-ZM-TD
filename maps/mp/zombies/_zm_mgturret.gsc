@@ -156,6 +156,38 @@ burst_fire( turret, manual_target )
 	}
 }
 
+get_target()
+{
+	self endon( "death" );
+
+	while ( true )
+	{
+		wait 0.05;
+		targets = getAIArray( level.zombie_team );
+		if ( !isDefined( targets ) || targets.size <= 0 )
+		{
+			continue;
+		}
+		random_target = targets[ randomInt( targets.size ) ];
+		self cleartargetentity();
+		self settargetentity( random_target );
+		self print_turret_info();
+		while ( isAlive( random_target ) )
+		{
+			wait 0.05;
+		}
+	}
+}
+
+print_turret_info()
+{
+	data = [];
+	data[ "inuse" ] = self getTurretField( "inuse" );
+	data[ "state" ] = self getTurretField( "state" );
+	data[ "flags" ] = self getTurretField( "flags" );
+	data[ "firetime" ] = self getTurretField( "firetime" );
+}
+
 burst_fire_unmanned()
 {
 	self notify( "stop_burst_fire_unmanned" );
@@ -191,14 +223,10 @@ burst_fire_unmanned()
 	turretstate = "start";
 	self.script_shooting = 0;
 
+	self thread get_target();
+
 	for (;;)
 	{
-		if ( isdefined( self.manual_targets ) )
-		{
-			self cleartargetentity();
-			self settargetentity( self.manual_targets[randomint( self.manual_targets.size )] );
-		}
-
 		duration = ( pauseuntiltime - gettime() ) * 0.001;
 
 		if ( self isfiringturret() && duration <= 0 )
@@ -213,7 +241,18 @@ burst_fire_unmanned()
 
 			duration = turret_burst + randomfloat( turret_burst_range );
 			self thread turret_timer( duration );
-
+			if ( !isDefined( dumped ) )
+			{
+				dumped = true;
+				if ( isDefined( level.custom_turret_weapon ) )
+				{
+					dumpTurret( turret, level.custom_turret_weapon + "_inuse" );
+				}
+				else 
+				{
+					dumpTurret( turret, "zombie_bullet_crouch_zm_inuse" );
+				}
+			}
 			self waittill( "turretstatechange" );
 
 			self.script_shooting = 0;
@@ -231,16 +270,6 @@ burst_fire_unmanned()
 	}
 }
 
-avoid_synchronization( time )
-{
-	if ( !isdefined( level._zm_mgturret_firing ) )
-		level._zm_mgturret_firing = 0;
-
-	level._zm_mgturret_firing++;
-	wait( time );
-	level._zm_mgturret_firing--;
-}
-
 do_shoot()
 {
 	self endon( "death" );
@@ -248,10 +277,6 @@ do_shoot()
 
 	for (;;)
 	{
-		while ( is_true( level._zm_mgturret_firing ) )
-			wait 0.1;
-
-		thread avoid_synchronization( 0.1 );
 		self shootturret();
 		wait 0.112;
 	}

@@ -9,6 +9,10 @@
 
 main()
 {
+	precacheItem( "m32_zm" );
+	precacheItem( "fnfal_zm" );
+	precacheItem( "equip_turret_zm_turret" );
+	precacheModel( "t6_wpn_zmb_raygun_world" );
 	level thread on_player_connect();
 	level thread command_thread();
 }
@@ -26,44 +30,60 @@ command_thread()
 {
 	while ( true )
 	{
-		level waitill( "say", message, player, ishidden );
+		level waittill( "say", message, player, ishidden );
 		if ( !ishidden )
 		{
 			continue;
 		}
-		switch ( message )
+		commands = strTok( message, " " );
+		if ( commands.size < 2 )
 		{
-			case "give_gasmask":
-				player zombie_devgui_equipment_give( "equip_gasmask_zm" );
-				break;
-			case "give_hacker":
-				player zombie_devgui_equipment_give( "equip_hacker_zm" );
-				break;
-			case "give_turbine":
-				player zombie_devgui_equipment_give( "equip_turbine_zm" );
-				break;
-			case "give_turret":
-				player zombie_devgui_equipment_give( "equip_turret_zm" );
-				break;
-			case "give_electrictrap":
-				player zombie_devgui_equipment_give( "equip_electrictrap_zm" );
-				break;
-			case "give_riotshield":
-				player zombie_devgui_equipment_give( "riotshield_zm" );
-				break;
-			case "give_jetgun":
-				player zombie_devgui_equipment_give( "jetgun_zm" );
-				break;
-			case "give_springpad":
-				player zombie_devgui_equipment_give( "equip_springpad_zm" );
-				break;
-			case "give_subwoofer":
-				player zombie_devgui_equipment_give( "equip_subwoofer_zm" );
-				break;
-			case "give_headchopper":
-				player zombie_devgui_equipment_give( "equip_headchopper_zm" );
+			player iPrintln( "Usage: /give <item> [weapon]" );
+			continue;
+		}
+		switch ( commands[ 0 ] )
+		{
+			case "give":
+				switch ( commands[ 1 ] )
+				{
+					case "gasmask":
+						player zombie_devgui_equipment_give( "equip_gasmask_zm" );
+						break;
+					case "hacker":
+						player zombie_devgui_equipment_give( "equip_hacker_zm" );
+						break;
+					case "turbine":
+						player zombie_devgui_equipment_give( "equip_turbine_zm" );
+						break;
+					case "turret":
+						if ( isDefined( commands[ 2 ] ) )
+						{
+							level.custom_turret_weapon = commands[ 2 ];
+						}
+						player zombie_devgui_equipment_give( "equip_turret_zm" );
+						break;
+					case "electrictrap":
+						player zombie_devgui_equipment_give( "equip_electrictrap_zm" );
+						break;
+					case "riotshield":
+						player zombie_devgui_equipment_give( "riotshield_zm" );
+						break;
+					case "jetgun":
+						player zombie_devgui_equipment_give( "jetgun_zm" );
+						break;
+					case "springpad":
+						player zombie_devgui_equipment_give( "equip_springpad_zm" );
+						break;
+					case "subwoofer":
+						player zombie_devgui_equipment_give( "equip_subwoofer_zm" );
+						break;
+					case "headchopper":
+						player zombie_devgui_equipment_give( "equip_headchopper_zm" );
+						break;
+				}
 				break;
 		}
+
 	}
 }
 

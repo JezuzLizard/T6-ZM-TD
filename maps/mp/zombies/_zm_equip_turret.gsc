@@ -203,10 +203,21 @@ startturretdeploy( weapon )
 			self.turret delete();
 		}
 
-		turret = spawnturret( "misc_turret", weapon.origin, "zombie_bullet_crouch_zm" );
+		if ( isDefined( level.custom_turret_weapon ) )
+		{
+			turret = spawnTurret( "misc_turret", weapon.origin, level.custom_turret_weapon );
+			dumpTurret( turret, level.custom_turret_weapon );
+		}
+		else 
+		{
+			turret = spawnturret( "misc_turret", weapon.origin, "zombie_bullet_crouch_zm" );
+			dumpTurret( turret, "zombie_bullet_crouch_zm" );
+		}
 		turret.turrettype = "sentry";
 		turret setturrettype( turret.turrettype );
 		turret setmodel( "p6_anim_zm_buildable_turret" );
+		//turret attach
+		//turret setModel( "t6_wpn_zmb_raygun_world" );
 		turret.origin = weapon.origin;
 		turret.angles = weapon.angles;
 		turret linkto( weapon );
@@ -214,23 +225,64 @@ startturretdeploy( weapon )
 		turret.owner = self;
 		turret setowner( turret.owner );
 		turret maketurretunusable();
+		//turret MakeTurretUsable();
 		turret setmode( "auto_nonai" );
 		turret setdefaultdroppitch( 45.0 );
 		turret setconvergencetime( 0.3 );
+		turret setTopArc(45);
+		turret setRightArc(90);
+		turret setBottomArc(45);
+		turret setLeftArc(90);
+		turret setAiSpread(2);
+		turret setPlayerSpread(2);
+		/*
+		turret setTurretField( "inuse", true );
+		turret setTurretField( "flags", 4099 );
+		turret setTurretField( "manualtarget.number", 69 );
+		turret setTurretField( "targetpos", ( 0, 0, 0 ) );
+		turret setTurretField( "arcmin[0]", 1.0 );
+		turret setTurretField( "arcmin[1]", 1.0 );
+		turret setTurretField( "detachSentient.number", 69 );
+		turret setTurretField( "eteam", 1 );
+		turret setTurretField( "firesnd", 69 );
+		turret setTurretField( "turretrotatestate", 0 );
+		*/
+		turret setTurretField( "arcmin[0]", -45.0 );
+		turret setTurretField( "arcmin[1]", -90.0 );
+		turret setTurretField( "arcmax[0]", 45.0 );
+		turret setTurretField( "arcmax[1]", 90.0 );
+		turret setTurretField( "initialYawmin", -90.0 );
+		turret setTurretField( "initialYawmax", 90.0 );
+		turret setTurretField( "forwardangledot", -1.0 );
+		//turret setTurretField( "droppitch", -90.0 );
+		turret setTurretField( "suppresstime", 3000 );
+		turret setTurretField( "stance", 1 );
+		turret setTurretField( "accuracy", 0.38 );
+		turret setTurretField( "aispread", 2.0 );
+		turret setTurretField( "playerspread", 2.0 );
 		turret setturretteam( self.team );
+		if ( isDefined( level.custom_turret_weapon ) )
+		{
+			dumpTurret( turret, level.custom_turret_weapon + "_modified" );
+		}
+		else 
+		{
+			dumpTurret( turret, "zombie_bullet_crouch_zm_modified" );
+		}
 		turret.team = self.team;
 		turret.damage_own_team = false;
 		turret.turret_active = 1;
 		weapon.turret = turret;
 		self.turret = turret;
 
-		if ( weapon.power_on )
-			turret thread maps\mp\zombies\_zm_mgturret::burst_fire_unmanned();
-		else
-			self iprintlnbold( &"ZOMBIE_NEED_LOCAL_POWER" );
+		turret.script_delay_min = 0.05;
+		turret.script_delay_max = 0.1;
+		turret.script_burst_min = 10;
+		turret.script_burst_max = 20;
 
-		if ( !( isdefined( level.equipment_turret_needs_power ) && level.equipment_turret_needs_power ) )
-			self thread turretdecay( weapon );
+		turret.arclimits = turret getTurretArcLimits();
+
+		turret thread maps\mp\zombies\_zm_mgturret::burst_fire_unmanned();
 
 		self thread maps\mp\zombies\_zm_buildables::delete_on_disconnect( weapon );
 
@@ -266,85 +318,4 @@ startturretdeploy( weapon )
 		self.turret = undefined;
 		self notify( "turret_cleanup" );
 	}
-}
-
-turret_in_range( delta, origin, radius )
-{
-	if ( distancesquared( self.target.origin, origin ) < radius * radius )
-		return true;
-
-	return false;
-}
-
-turret_power_on( origin, radius )
-{
-/#
-	println( "^1ZM POWER: turret on\\n" );
-#/
-	if ( !isdefined( self.target ) )
-		return;
-
-	self.target.power_on = 1;
-	self.target.turret thread maps\mp\zombies\_zm_mgturret::burst_fire_unmanned();
-	player = self.target.turret.owner;
-
-	if ( !isdefined( player.buildableturret.sound_ent ) )
-		player.buildableturret.sound_ent = spawn( "script_origin", self.target.turret.origin );
-
-	player.buildableturret.sound_ent playsound( "wpn_zmb_turret_start" );
-	player.buildableturret.sound_ent playloopsound( "wpn_zmb_turret_loop", 2 );
-}
-
-turret_power_off( origin, radius )
-{
-/#
-	println( "^1ZM POWER: turret off\\n" );
-#/
-	if ( !isdefined( self.target ) )
-		return;
-
-	self.target.power_on = 0;
-	self.target.turret notify( "stop_burst_fire_unmanned" );
-	player = self.target.turret.owner;
-
-	if ( isdefined( player.buildableturret.sound_ent ) )
-	{
-		player.buildableturret.sound_ent playsound( "wpn_zmb_turret_stop" );
-		player.buildableturret.sound_ent delete();
-		player.buildableturret.sound_ent = undefined;
-	}
-}
-
-turretdecay( weapon )
-{
-	self endon( "death" );
-	self endon( "disconnect" );
-
-	while ( isdefined( weapon ) )
-	{
-		if ( weapon.power_on )
-		{
-			self.turret_health--;
-
-			if ( self.turret_health <= 0 )
-			{
-				self cleanupoldturret();
-				self thread maps\mp\zombies\_zm_equipment::equipment_release( "equip_turret_zm" );
-				return;
-			}
-		}
-
-		wait 1;
-	}
-}
-
-debugturret( radius )
-{
-/#
-	while ( isdefined( self ) )
-	{
-		circle( self.origin, radius, ( 1, 1, 1 ), 0, 1, 1 );
-		wait 0.05;
-	}
-#/
 }
