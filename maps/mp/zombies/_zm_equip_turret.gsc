@@ -56,7 +56,7 @@ watchturretuse()
 
 		if ( weapname == level.turret_name )
 		{
-			if ( self.owned_turrets.size >= getDvarIntDefault( "sv_max_turrets", 32 ) )
+			if ( self.owned_turrets.size >= getDvarIntDefault( "sv_max_turrets", 23 ) )
 			{
 				self cleanupturret( self.owned_turrets[ 0 ] );
 			}
@@ -65,6 +65,7 @@ watchturretuse()
 	}
 }
 
+//TODO: fix removing old turrets
 cleanupturret( turret_to_delete )
 {
 	if ( isdefined( turret_to_delete.stub ) )
@@ -113,7 +114,10 @@ placeturret( origin, angles )
 dropturret()
 {
 	item = self maps\mp\zombies\_zm_equipment::dropped_equipment_think( "p6_anim_zm_buildable_turret", "equip_turret_zm", self.origin, self.angles );
-
+	if ( isDefined( item ) )
+	{
+		//item.damagetaken = self.damagetaken; //TODO: store each player's turret health
+	}
 	return item;
 }
 
@@ -156,7 +160,7 @@ startturretdeploy( weapon )
 	self endon( "equip_turret_zm_taken" );
 
 	if ( !isdefined( level.turret_max_health ) )
-		level.turret_max_health = 60;
+		level.turret_max_health = 1000;
 
 	level.ignore_equipment = ::zombie_ignore_equipment;
 
@@ -188,13 +192,24 @@ startturretdeploy( weapon )
 		turret setmodel( "p6_anim_zm_buildable_turret" );
 		//turret attach
 		//turret setModel( "t6_wpn_zmb_raygun_world" );
-		turret add_turret_weapon(level.custom_turret_weapon);
+		if ( level.custom_turret_weapon != "zombie_bullet_crouch_zm" )
+		{
+			turret add_turret_weapon(level.custom_turret_weapon);
+		}
 		turret.origin = weapon.origin;
 		turret.angles = weapon.angles;
 		turret linkto( weapon );
 		turret makeunusable();
 		turret.owner = self;
 		turret setowner( turret.owner );
+		if ( !isDefined( weapon.damagetaken ) )
+		{
+			weapon.damagetaken = 0;
+			weapon.maxhealth = level.turret_max_health;
+			weapon.health = 10000000;
+			turret.health = 10000000;
+		}
+		turret.damagetaken = weapon.damagetaken;
 		turret maketurretunusable();
 		//turret MakeTurretUsable();
 		turret setmode( "auto_nonai" );
@@ -250,6 +265,16 @@ startturretdeploy( weapon )
 
 		turret thread maps\mp\zombies\_zm_mgturret::burst_fire_unmanned();
 
+		turret thread turret_waittill_stop_burst_fire_unmanned();
+
+		turret thread turret_waittill_death();
+
+		turret thread turret_waittill_remote_start();
+
+		weapon thread buildable_turret_waittill_damage();
+
+		turret thread print_health();
+
 		self.owned_turrets[ self.owned_turrets.size ] = weapon;
 
 		while ( isdefined( weapon ) )
@@ -269,4 +294,76 @@ startturretdeploy( weapon )
 zombie_ignore_equipment( zombie )
 {
 	return true;
+}
+
+turret_waittill_stop_burst_fire_unmanned()
+{
+	self waittill( "stop_burst_fire_unmanned" );
+	print( "stop_burst_fire_unmanned notify triggered" );
+}
+
+turret_waittill_death()
+{
+	self waittill( "death" );
+	print( "death notify triggered" );
+}
+
+turret_waittill_remote_start()
+{
+	self waittill( "remote_start" );
+	print( "remote_start triggered" );
+}
+
+//self == buildable
+buildable_turret_waittill_damage()
+{
+	while ( isDefined( self.turret ) )
+	{
+		self.turret waittill( "damage", amount, attacker, direction, point, mod, tagname, modelname, partname, weaponname, idflags );
+		if ( isDefined( self.turret.owner ) )
+		{
+			print( self.turret.owner.name + "'s turret took " + amount + " damage from " + attacker.classname + " with mod " + mod + "  health remaining: " + self.turret.health );
+		}
+		else if ( isDefined( self.turret.currentweapon ) && isDefined( attacker.classname ) )
+		{
+			print( "turret of type " + self.turret.currentweapon + " took " + amount + " damage from " + attacker.classname + " with mod " + mod + "  health remaining: " + self.turret.health );
+		}
+		else
+		{
+			print( "turret took " + amount + " damage health remaining: " + self.turret.health );
+		}
+		self rollback_turret_health( amount );
+		if ( !isDefined( attacker ) )
+		{
+			continue;
+		}
+		if ( attacker.classname == "worldspawn" || attacker.classname == "misc_turret" )
+		{
+			continue;
+		}
+		if ( isPlayer( attacker ) )
+		{
+			continue;
+		}
+		self.damagetaken += amount;
+		if ( self.damagetaken >= self.maxhealth )
+		{
+			cleanupturret( self );
+		}
+	}
+}
+
+rollback_turret_health( amount )
+{
+	self.health += amount;
+	self.turret.health += amount;
+}
+
+print_health()
+{
+	while ( isDefined( self ) )
+	{
+		print( "turret health " + self.health );
+		wait 1;
+	}
 }

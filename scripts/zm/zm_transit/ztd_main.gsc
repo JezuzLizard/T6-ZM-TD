@@ -19,6 +19,19 @@ main()
 
 init()
 {
+	level.ztd_turret_types = [];
+	level.ztd_turret_types[ 0 ] = "sticky_grenade_zm";
+	level.ztd_turret_types[ 1 ] = "m1911_upgraded_zm";
+	level.ztd_turret_types[ 2 ] = "judge_zm";
+	level.ztd_turret_types[ 3 ] = "fivesevendw_zm";
+	level.ztd_turret_types[ 4 ] = "saritch_zm";
+	level.ztd_turret_types[ 5 ] = "galil_zm";
+	level.ztd_turret_types[ 6 ] = "dsr50_zm";
+	level.ztd_turret_types[ 7 ] = "rpd_zm";
+	level.ztd_turret_types[ 8 ] = "usrpg_zm";
+	level.ztd_turret_types[ 9 ] = "ray_gun_zm";
+	level.ztd_turret_types[ 10 ] = "knife_ballistic_zm";
+	level.ztd_turret_types[ 11 ] = "raygun_mark2_upgraded_zm";
 }
 
 spawn_zombie_override( spawner, target_name, spawn_point, round_number )
@@ -178,14 +191,14 @@ command_thread()
 			continue;
 		}
 		commands = strTok( message, " " );
-		if ( commands.size < 2 )
-		{
-			player iPrintln( "Usage: /give <item> [weapon]" );
-			continue;
-		}
 		switch ( commands[ 0 ] )
 		{
 			case "give":
+				if ( commands.size < 2 )
+				{
+					player iPrintln( "Usage: /give <item> [weapon]" );
+					continue;
+				}
 				switch ( commands[ 1 ] )
 				{
 					case "gasmask":
@@ -200,7 +213,14 @@ command_thread()
 					case "turret":
 						if ( isDefined( commands[ 2 ] ) )
 						{
-							level.custom_turret_weapon = commands[ 2 ];
+							if ( commands[ 2 ] == "random" )
+							{
+								level.custom_turret_weapon = level.ztd_turret_types[ randomInt( level.ztd_turret_types.size ) ];
+							}
+							else 
+							{
+								level.custom_turret_weapon = commands[ 2 ];
+							}
 						}
 						player zombie_devgui_equipment_give( "equip_turret_zm" );
 						break;
@@ -222,6 +242,15 @@ command_thread()
 					case "headchopper":
 						player zombie_devgui_equipment_give( "equip_headchopper_zm" );
 						break;
+				}
+				break;
+			case "dumpturrets":
+				if ( isDefined( player.owned_turrets ) )
+				{
+					for ( i = 0; i < player.owned_turrets.size; i++ )
+					{
+						dumpTurret( player.owned_turrets[ i ].turret, player.owned_turrets[ i ].turret.currentweapon + "_user_dumped_" + player.name + "_" + i );
+					}
 				}
 				break;
 		}

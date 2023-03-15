@@ -168,6 +168,7 @@ get_target()
 
 	while (true)
 	{
+		//print( "get_target() loop" );
 		wait 0.05;
 		targets = self get_targets();
 		if (!isdefined(targets) || targets.size <= 0)
@@ -198,7 +199,6 @@ burst_fire_unmanned()
 	self endon( "stop_burst_fire_unmanned" );
 	self endon( "death" );
 	self endon( "remote_start" );
-	level endon( "game_ended" );
 
 	if ( isdefined( self.controlled ) && self.controlled )
 		return;
@@ -237,6 +237,7 @@ burst_fire_unmanned()
 		{
 			if ( turretstate != "fire" )
 			{
+				print( "turretstate set to fire" );
 				turretstate = "fire";
 				self playsound( "mpl_turret_alert" );
 				self thread do_shoot();
@@ -266,11 +267,14 @@ burst_fire_unmanned()
 		}
 
 		if ( turretstate != "aim" )
+		{
+			print( "turretstate set to aim" );
 			turretstate = "aim";
-
+		}
 		self thread turret_timer( duration );
 
 		self waittill( "turretstatechange" );
+		print( "Turret loop" );
 	}
 }
 
