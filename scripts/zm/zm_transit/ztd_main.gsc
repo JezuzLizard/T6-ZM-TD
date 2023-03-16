@@ -2,6 +2,10 @@
 #include maps\mp\_utility;
 #include maps\mp\zombies\_zm_utility;
 #include maps\mp\zombies\_zm_spawner;
+#include maps\mp\zombies\_zm_zonemgr;
+#include maps\mp\zombies\_zm;
+
+#include scripts\zm\_gametype_setup;
 
 #include scripts\zm\zm_transit\ztd_placeables\electric_trap;
 #include scripts\zm\zm_transit\ztd_placeables\shield;
@@ -11,12 +15,25 @@
 main()
 {
 	replaceFunc( maps\mp\zombies\_zm_utility::spawn_zombie, ::spawn_zombie_override );
-	replaceFunc( maps\mp\zombies\_zm_utility::has_deployed_equipment, ::has_deployed_equipment_override );	
+	replaceFunc( maps\mp\zombies\_zm_utility::has_deployed_equipment, ::has_deployed_equipment_override );
+	replaceFunc( maps\mp\zombies\_zm_utility::init_zombie_run_cycle, ::init_zombie_run_cycle_override );
 	replaceFunc( maps\mp\zombies\_zm_spawner::zombie_death_points, ::zombie_death_points_override );
 	replaceFunc( maps\mp\zombies\_zm_spawner::zombie_pathing, ::zombie_pathing_override );
 	replaceFunc( maps\mp\zombies\_zm_ai_basic::find_flesh, ::find_flesh_override );
+	replaceFunc( maps\mp\zombies\_zm_zonemgr::zone_init, ::zone_init_override );
+	replaceFunc( maps\mp\zombies\_zm::init_levelvars, ::init_levelvars_override );
+
+	level.round_spawn_func = ::round_spawning_override;
+	level.round_think_func = ::round_think_override;
+	level.create_spawner_list_func = ::create_spawner_list_override;
+
 	level thread on_player_connect();
 	level thread command_thread();
+
+	print( getDvar( "ztd_gametype" ) );
+	print( getDvar( "ztd_location" ) );
+
+	add_struct_location_gamemode_func( "normal", "transit", ::ztd_normal_transit );
 }
 
 init()
@@ -46,6 +63,116 @@ init()
 		wait 0.05;
 	}
 }
+
+ztd_normal_transit()
+{
+	print( "Running gametype " + getDvar( "ztd_gametype" ) + " on location " + getDvar( "ztd_location" ) );
+	level.zombie_spawn_locations = [];
+	level.enemy_dog_locations = [];
+	level.zombie_screecher_locations = [];
+	level.zombie_avogadro_locations = [];
+	level.zombie_leaper_locations = [];
+	level.zombie_brutus_locations = [];
+	level.zombie_mechz_locations = [];
+	//Corner back area on bus depot
+	register_ztd_zombie_spawn( "zombie", undefined, undefined, "riser_location", ( -6017.34, 5444.38, -63.8758 ), ( 0, 45, 0 ) );
+	register_ztd_zombie_spawn( "zombie", undefined, undefined, "riser_location", ( -6078.86, 5510.25, -63.875 ), ( 0, 45, 0 ) );
+	register_ztd_zombie_spawn( "zombie", undefined, undefined, "riser_location", ( -6168.16, 5503.32, -55.875 ), ( 0, 45, 0 ) );
+	register_ztd_zombie_spawn( "zombie", undefined, undefined, "riser_location", ( -6276.78, 5503.59, -55.875 ), ( 0, 45, 0 ) );
+	register_ztd_zombie_spawn( "zombie", undefined, undefined, "riser_location", ( -6278.29, 5422.87, -55.875 ), ( 0, 45, 0 ) );
+	register_ztd_zombie_spawn( "zombie", undefined, undefined, "riser_location", ( -6171.77, 5423.03, -55.875 ), ( 0, 45, 0 ) );
+	register_ztd_zombie_spawn( "zombie", undefined, undefined, "riser_location", ( -6136.35, 5358.91, -63.875 ), ( 0, 45, 0 ) );
+
+	level.struct_class_names[ "script_noteworthy" ][ "inert_location" ] = [];
+}
+
+register_ztd_zombie_spawn( ai_type, zone = "none", script_string = "find_flesh", spawn_type, origin, angles )
+{
+	spawn_location = spawnStruct();
+	spawn_location.ai_type = ai_type;
+	spawn_location.script_string = script_string;
+	spawn_location.targetname = zone;
+	spawn_location.origin = origin;
+	spawn_location.angles = angles;
+	spawn_location.script_noteworthy = spawn_type;
+	spawn_location.is_blocked = false;
+	switch ( spawn_type )
+	{
+		case "dog_location":
+			level.enemy_dog_locations[ level.enemy_dog_locations.size ] = spawn_location;
+			break;
+		case "screecher_location":
+			level.zombie_screecher_locations[ level.zombie_screecher_locations.size ] = spawn_location;
+			break;
+		case "avogadro_location":
+			level.zombie_avogadro_locations[ level.zombie_avogadro_locations.size ] = spawn_location;
+			break;
+		case "leaper_location":
+			level.zombie_leaper_locations[ level.zombie_leaper_locations.size ] = spawn_location;
+			break;
+		case "brutus_location":
+			level.zombie_brutus_locations[ level.zombie_brutus_locations.size ] = spawn_location;
+			break;
+		case "mechz_location":
+			level.zombie_mechz_locations[ level.zombie_mechz_locations.size ] = spawn_location;
+			break;
+		case "riser_location":
+			print( "register_ztd_zombie_spawn() added riser_location" );
+			level.zombie_spawn_locations[ level.zombie_spawn_locations.size ] = spawn_location;
+			break;
+	}
+}
+
+print_origin()
+{
+	self endon( "disconnect" );
+	while ( true )
+	{
+		debug_mode = getDvarInt( "ztd_print_debug" );
+		if ( debug_mode <= 0 )
+		{
+			wait 0.1;
+			continue;
+		}
+		if ( self meleeButtonPressed() )
+		{
+			origin_str = "origin: " + self.origin;
+			angles_str = "angles: " + self.angles;
+			anglestoforward_str = "anglestoforward: " + anglesToForward( self.angles );
+			zone_str = self maps\mp\zombies\_zm_zonemgr::get_player_zone();
+			turrets_owned_str = self.name + " owns " + self.owned_turrets.size + " turrets";
+			//turrets_total_and_max_count = "Turret counts: " + get_total_turrets() + " limit: " + get_turret_limit();
+
+			logprint( origin_str + "\n" );
+			logprint( angles_str + "\n" );
+			logprint( anglestoforward_str + "\n" );
+			logprint( turrets_owned_str + "\n" );
+			
+			print( origin_str );
+			print( angles_str );
+			print( anglestoforward_str );
+			print( turrets_owned_str );
+			if ( isDefined( zone_str ) )
+			{
+				zone_message_str = self.name + " is in " + zone_str + " zone";
+				logprint( zone_message_str + "\n" );
+				print( zone_message_str );
+				zone_str = undefined;
+				zone_message_str = undefined;
+			}
+			
+			origin_str = undefined;
+			angles_str = undefined;
+			anglestoforward_str = undefined;
+			turrets_owned_str = undefined;
+			while ( self meleeButtonPressed() )
+				wait 0.05;
+		}
+
+		wait 0.05;
+	}
+}
+
 
 spawn_zombie_override( spawner, target_name, spawn_point, round_number )
 {
@@ -126,6 +253,11 @@ ztd_on_damage()
 	}
 }
 
+ztd_pathing()
+{
+	
+}
+
 /*
 ztd_actor_killed( einflictor, attacker, idamage, smeansofdeath, sweapon, vdir, shitloc, psoffsettime )
 {
@@ -191,7 +323,8 @@ on_player_connect()
 	while ( true )
 	{
 		level waittill( "connected", player );
-		player thread give_turret();
+		player.owned_turrets = [];
+		player thread print_origin();
 	}
 }
 
@@ -369,7 +502,7 @@ find_flesh_override()
 			self.favoriteenemy = player;
 		}
 
-		self thread zombie_pathing();
+		self thread zombie_pathing_override();
 
 		if ( players.size > 1 )
 		{
@@ -405,7 +538,7 @@ find_flesh_override()
 	}
 }
 
-zombie_pathing()
+zombie_pathing_override()
 {
 	self endon( "death" );
 	self endon( "zombie_acquire_enemy" );
@@ -573,4 +706,591 @@ zombie_follow_enemy()
 		if ( isdefined( level.inaccesible_player_func ) )
 			self [[ level.inaccessible_player_func ]]();
 	}
+}
+
+round_think_override( restart = 0 )
+{
+/#
+	println( "ZM >> round_think start" );
+#/
+	level endon( "end_round_think" );
+
+	if ( !( isdefined( restart ) && restart ) )
+	{
+		if ( isdefined( level.initial_round_wait_func ) )
+			[[ level.initial_round_wait_func ]]();
+
+		if ( !( isdefined( level.host_ended_game ) && level.host_ended_game ) )
+		{
+			players = get_players();
+
+			foreach ( player in players )
+			{
+				if ( !( isdefined( player.hostmigrationcontrolsfrozen ) && player.hostmigrationcontrolsfrozen ) )
+				{
+					player freezecontrols( 0 );
+/#
+					println( " Unfreeze controls 8" );
+#/
+				}
+
+				player maps\mp\zombies\_zm_stats::set_global_stat( "rounds", level.round_number );
+			}
+		}
+	}
+
+	setroundsplayed( level.round_number );
+
+	for (;;)
+	{
+		maxreward = 50 * level.round_number;
+
+		if ( maxreward > 500 )
+			maxreward = 500;
+
+		level.zombie_vars["rebuild_barrier_cap_per_round"] = maxreward;
+		level.pro_tips_start_time = gettime();
+		level.zombie_last_run_time = gettime();
+
+		if ( isdefined( level.zombie_round_change_custom ) )
+			[[ level.zombie_round_change_custom ]]();
+		else
+		{
+			level thread maps\mp\zombies\_zm_audio::change_zombie_music( "round_start" );
+			round_one_up();
+		}
+
+		maps\mp\zombies\_zm_powerups::powerup_round_start();
+		players = get_players();
+		array_thread( players, maps\mp\zombies\_zm_blockers::rebuild_barrier_reward_reset );
+
+		if ( !( isdefined( level.headshots_only ) && level.headshots_only ) && !restart )
+			level thread award_grenades_for_survivors();
+
+		bbprint( "zombie_rounds", "round %d player_count %d", level.round_number, players.size );
+/#
+		println( "ZM >> round_think, round=" + level.round_number + ", player_count=" + players.size );
+#/
+		level.round_start_time = gettime();
+
+		print( "round_think()" );
+		while ( level.zombie_spawn_locations.size <= 0 )
+			wait 0.1;
+
+		level thread [[ level.round_spawn_func ]]();
+		level notify( "start_of_round" );
+		recordzombieroundstart();
+		players = getplayers();
+
+		for ( index = 0; index < players.size; index++ )
+		{
+			zonename = players[index] get_current_zone();
+
+			if ( isdefined( zonename ) )
+				players[index] recordzombiezone( "startingZone", zonename );
+		}
+
+		if ( isdefined( level.round_start_custom_func ) )
+			[[ level.round_start_custom_func ]]();
+
+		[[ level.round_wait_func ]]();
+		level.first_round = 0;
+		level notify( "end_of_round" );
+		level thread maps\mp\zombies\_zm_audio::change_zombie_music( "round_end" );
+		uploadstats();
+
+		if ( isdefined( level.round_end_custom_logic ) )
+			[[ level.round_end_custom_logic ]]();
+
+		players = get_players();
+
+		if ( isdefined( level.no_end_game_check ) && level.no_end_game_check )
+		{
+			level thread last_stand_revive();
+			level thread spectators_respawn();
+		}
+		else if ( 1 != players.size )
+			level thread spectators_respawn();
+
+		players = get_players();
+		array_thread( players, maps\mp\zombies\_zm_pers_upgrades_system::round_end );
+		timer = level.zombie_vars["zombie_spawn_delay"];
+
+		if ( timer > 0.08 )
+			level.zombie_vars["zombie_spawn_delay"] = timer * 0.95;
+		else if ( timer < 0.08 )
+			level.zombie_vars["zombie_spawn_delay"] = 0.08;
+
+		if ( level.gamedifficulty == 0 )
+			level.zombie_move_speed = level.round_number * level.zombie_vars["zombie_move_speed_multiplier_easy"];
+		else
+			level.zombie_move_speed = level.round_number * level.zombie_vars["zombie_move_speed_multiplier"];
+
+		level.round_number++;
+
+		if ( 255 < level.round_number )
+			level.round_number = 255;
+
+		setroundsplayed( level.round_number );
+		matchutctime = getutc();
+		players = get_players();
+
+		foreach ( player in players )
+		{
+			if ( level.curr_gametype_affects_rank && level.round_number > 3 + level.start_round )
+				player maps\mp\zombies\_zm_stats::add_client_stat( "weighted_rounds_played", level.round_number );
+
+			player maps\mp\zombies\_zm_stats::set_global_stat( "rounds", level.round_number );
+			player maps\mp\zombies\_zm_stats::update_playing_utc_time( matchutctime );
+		}
+
+		check_quickrevive_for_hotjoin();
+		level round_over();
+		level notify( "between_round_over" );
+		restart = 0;
+	}
+}
+
+round_spawning_override()
+{
+	level endon( "intermission" );
+	level endon( "end_of_round" );
+	level endon( "restart_round" );
+/#
+	level endon( "kill_round" );
+#/
+	if ( level.intermission )
+		return;
+
+	ai_calculate_health( level.round_number );
+	count = 0;
+	players = get_players();
+
+	for ( i = 0; i < players.size; i++ )
+		players[i].zombification_time = 0;
+
+	max = level.zombie_vars["zombie_max_ai"];
+	multiplier = level.round_number / 5;
+
+	if ( multiplier < 1 )
+		multiplier = 1;
+
+	if ( level.round_number >= 10 )
+		multiplier *= ( level.round_number * 0.15 );
+
+	player_num = get_players().size;
+
+	if ( player_num == 1 )
+		max += int( 0.5 * level.zombie_vars["zombie_ai_per_player"] * multiplier );
+	else
+		max += int( ( player_num - 1 ) * level.zombie_vars["zombie_ai_per_player"] * multiplier );
+
+	if ( !isdefined( level.max_zombie_func ) )
+		level.max_zombie_func = ::default_max_zombie_func;
+
+	if ( !( isdefined( level.kill_counter_hud ) && level.zombie_total > 0 ) )
+	{
+		level.zombie_total = [[ level.max_zombie_func ]]( max );
+		level notify( "zombie_total_set" );
+	}
+
+	if ( isdefined( level.zombie_total_set_func ) )
+		level thread [[ level.zombie_total_set_func ]]();
+
+	if ( level.round_number < 10 || level.speed_change_max > 0 )
+		level thread zombie_speed_up();
+
+	mixed_spawns = 0;
+	old_spawn = undefined;
+
+	while ( true )
+	{
+		print( "round_spawning() loop start" );
+		while ( get_current_zombie_count() >= level.zombie_ai_limit || level.zombie_total <= 0 )
+			wait 0.1;
+
+		while ( get_current_actor_count() >= level.zombie_actor_limit )
+		{
+			clear_all_corpses();
+			wait 0.1;
+		}
+
+		while ( getDvarInt( "ztd_disable_zombie_spawning" ) == 1 )
+		{
+			wait 0.1;
+		}
+
+		flag_wait( "spawn_zombies" );
+
+		while ( level.zombie_spawn_locations.size <= 0 )
+		{
+			print( "no spawn locations available" );
+			wait 0.1;
+		}
+
+		run_custom_ai_spawn_checks();
+		spawn_point = level.zombie_spawn_locations[randomint( level.zombie_spawn_locations.size )];
+
+		if ( !isdefined( old_spawn ) )
+			old_spawn = spawn_point;
+		else if ( spawn_point == old_spawn )
+			spawn_point = level.zombie_spawn_locations[randomint( level.zombie_spawn_locations.size )];
+
+		old_spawn = spawn_point;
+
+		if ( isdefined( level.zombie_spawners ) )
+		{
+			if ( isdefined( level.use_multiple_spawns ) && level.use_multiple_spawns )
+			{
+				if ( isdefined( spawn_point.script_int ) )
+				{
+					if ( isdefined( level.zombie_spawn[spawn_point.script_int] ) && level.zombie_spawn[spawn_point.script_int].size )
+						spawner = random( level.zombie_spawn[spawn_point.script_int] );
+					else
+					{
+/#
+						assertmsg( "Wanting to spawn from zombie group " + spawn_point.script_int + "but it doens't exist" );
+#/
+					}
+				}
+				else if ( isdefined( level.zones[spawn_point.zone_name].script_int ) && level.zones[spawn_point.zone_name].script_int )
+					spawner = random( level.zombie_spawn[level.zones[spawn_point.zone_name].script_int] );
+				else if ( isdefined( level.spawner_int ) && ( isdefined( level.zombie_spawn[level.spawner_int].size ) && level.zombie_spawn[level.spawner_int].size ) )
+					spawner = random( level.zombie_spawn[level.spawner_int] );
+				else
+					spawner = random( level.zombie_spawners );
+			}
+			else
+				spawner = random( level.zombie_spawners );
+
+			ai = spawn_zombie( spawner, spawner.targetname, spawn_point );
+		}
+
+		if ( isdefined( ai ) )
+		{
+			level.zombie_total--;
+			ai thread round_spawn_failsafe();
+			count++;
+		}
+
+		wait( level.zombie_vars["zombie_spawn_delay"] );
+		wait_network_frame();
+	}
+}
+
+init_levelvars_override()
+{
+	level.is_zombie_level = 1;
+	level.laststandpistol = "m1911_zm";
+	level.default_laststandpistol = "m1911_zm";
+	level.default_solo_laststandpistol = "m1911_upgraded_zm";
+	level.start_weapon = "m1911_zm";
+	level.first_round = 1;
+	level.start_round = getgametypesetting( "startRound" );
+	level.round_number = level.start_round;
+	level.enable_magic = getgametypesetting( "magic" );
+	level.headshots_only = getgametypesetting( "headshotsonly" );
+	level.player_starting_points = level.round_number * 500;
+	level.round_start_time = 0;
+	level.pro_tips_start_time = 0;
+	level.intermission = 0;
+	level.dog_intermission = 0;
+	level.zombie_total = 0;
+	level.total_zombies_killed = 0;
+	level.hudelem_count = 0;
+	level.current_zombie_array = [];
+	level.current_zombie_count = 0;
+	level.zombie_total_subtract = 0;
+	level.destructible_callbacks = [];
+	level.zombie_vars = [];
+
+	foreach ( team in level.teams )
+		level.zombie_vars[team] = [];
+
+	difficulty = 1;
+	column = int( difficulty ) + 1;
+	set_zombie_var( "zombie_health_increase", 100, 0, column );
+	set_zombie_var( "zombie_health_increase_multiplier", 0.1, 1, column );
+	set_zombie_var( "zombie_health_start", 150, 0, column );
+	set_zombie_var( "zombie_spawn_delay", 2.0, 1, column );
+	set_zombie_var( "zombie_new_runner_interval", 10, 0, column );
+	set_zombie_var( "zombie_move_speed_multiplier", 8, 0, column );
+	set_zombie_var( "zombie_move_speed_multiplier_easy", 2, 0, column );
+	set_zombie_var( "zombie_max_ai", 24, 0, column );
+	set_zombie_var( "zombie_ai_per_player", 6, 0, column );
+	set_zombie_var( "below_world_check", -1000 );
+	set_zombie_var( "spectators_respawn", 1 );
+	set_zombie_var( "zombie_use_failsafe", 1 );
+	set_zombie_var( "zombie_between_round_time", 10 );
+	set_zombie_var( "zombie_intermission_time", 15 );
+	set_zombie_var( "game_start_delay", 0, 0, column );
+	set_zombie_var( "penalty_no_revive", 0.1, 1, column );
+	set_zombie_var( "penalty_died", 0.0, 1, column );
+	set_zombie_var( "penalty_downed", 0.05, 1, column );
+	set_zombie_var( "starting_lives", 1, 0, column );
+	set_zombie_var( "zombie_score_kill_4player", 50 );
+	set_zombie_var( "zombie_score_kill_3player", 50 );
+	set_zombie_var( "zombie_score_kill_2player", 50 );
+	set_zombie_var( "zombie_score_kill_1player", 50 );
+	set_zombie_var( "zombie_score_kill_4p_team", 30 );
+	set_zombie_var( "zombie_score_kill_3p_team", 35 );
+	set_zombie_var( "zombie_score_kill_2p_team", 45 );
+	set_zombie_var( "zombie_score_kill_1p_team", 0 );
+	set_zombie_var( "zombie_score_damage_normal", 10 );
+	set_zombie_var( "zombie_score_damage_light", 10 );
+	set_zombie_var( "zombie_score_bonus_melee", 80 );
+	set_zombie_var( "zombie_score_bonus_head", 50 );
+	set_zombie_var( "zombie_score_bonus_neck", 20 );
+	set_zombie_var( "zombie_score_bonus_torso", 10 );
+	set_zombie_var( "zombie_score_bonus_burn", 10 );
+	set_zombie_var( "zombie_flame_dmg_point_delay", 500 );
+	set_zombie_var( "zombify_player", 0 );
+
+	if ( issplitscreen() )
+		set_zombie_var( "zombie_timer_offset", 280 );
+
+	level thread init_player_levelvars();
+	level.gamedifficulty = getgametypesetting( "zmDifficulty" );
+
+	if ( level.gamedifficulty == 0 )
+		level.zombie_move_speed = level.round_number * level.zombie_vars["zombie_move_speed_multiplier_easy"];
+	else
+		level.zombie_move_speed = level.round_number * level.zombie_vars["zombie_move_speed_multiplier"];
+
+	if ( level.round_number == 1 )
+		level.zombie_move_speed = 1;
+	else
+	{
+		for ( i = 1; i <= level.round_number; i++ )
+		{
+			timer = level.zombie_vars["zombie_spawn_delay"];
+
+			if ( timer > 0.08 )
+			{
+				level.zombie_vars["zombie_spawn_delay"] = timer * 0.95;
+				continue;
+			}
+
+			if ( timer < 0.08 )
+				level.zombie_vars["zombie_spawn_delay"] = 0.08;
+		}
+	}
+
+	level.speed_change_max = 0;
+	level.speed_change_num = 0;
+}
+
+init_zombie_run_cycle_override()
+{
+    if ( isdefined( level.speed_change_round ) && false)
+    {
+        if ( level.round_number >= level.speed_change_round )
+        {
+            speed_percent = 0.2 + ( level.round_number - level.speed_change_round ) * 0.2;
+            speed_percent = min( speed_percent, 1 );
+            change_round_max = int( level.speed_change_max * speed_percent );
+            change_left = change_round_max - level.speed_change_num;
+
+            if ( change_left == 0 )
+            {
+                self set_zombie_run_cycle();
+                return;
+            }
+
+            change_speed = randomint( 100 );
+
+            if ( change_speed > 80 )
+            {
+                self change_zombie_run_cycle();
+                return;
+            }
+
+            zombie_count = get_current_zombie_count();
+            zombie_left = level.zombie_ai_limit - zombie_count;
+
+            if ( zombie_left == change_left )
+            {
+                self change_zombie_run_cycle();
+                return;
+            }
+        }
+    }
+
+    self set_zombie_run_cycle();
+}
+
+change_zombie_run_cycle()
+{
+	level.speed_change_num++;
+
+	self set_zombie_run_cycle( "walk" );
+
+	self thread speed_change_watcher();
+}
+
+speed_change_watcher()
+{
+	self waittill( "death" );
+
+	if ( level.speed_change_num > 0 )
+		level.speed_change_num--;
+}
+
+set_zombie_run_cycle( new_move_speed )
+{
+	self.zombie_move_speed_original = self.zombie_move_speed;
+
+	if ( isdefined( new_move_speed ) )
+		self.zombie_move_speed = new_move_speed;
+	else
+		self set_run_speed();
+
+	self maps\mp\animscripts\zm_run::needsupdate();
+	self.deathanim = self maps\mp\animscripts\zm_utility::append_missing_legs_suffix( "zm_death" );
+}
+
+set_run_speed()
+{
+	rand = randomintrange( level.zombie_move_speed, level.zombie_move_speed + 35 );
+
+	if ( rand <= 35 )
+		self.zombie_move_speed = "walk";
+	else if ( rand <= 70 )
+		self.zombie_move_speed = "run";
+	else
+		self.zombie_move_speed = "sprint";
+}
+
+zone_init_override( zone_name )
+{
+	if ( isdefined( level.zones[zone_name] ) )
+		return;
+/#
+	println( "ZM >> zone_init (1) = " + zone_name );
+#/
+	level.zones[zone_name] = spawnstruct();
+	zone = level.zones[zone_name];
+	zone.is_enabled = 0;
+	zone.is_occupied = 0;
+	zone.is_active = 0;
+	zone.adjacent_zones = [];
+	zone.is_spawning_allowed = 0;
+	zone.volumes = [];
+	volumes = getentarray( zone_name, "targetname" );
+/#
+	println( "ZM >> zone_init (2) = " + volumes.size );
+#/
+	for ( i = 0; i < volumes.size; i++ )
+	{
+		if ( volumes[i].classname == "info_volume" )
+			zone.volumes[zone.volumes.size] = volumes[i];
+	}
+
+	assert( isdefined( zone.volumes[0] ), "zone_init: No volumes found for zone: " + zone_name );
+
+	if ( isdefined( zone.volumes[0].target ) )
+	{
+		spots = getstructarray( zone.volumes[0].target, "targetname" );
+		zone.spawn_locations = [];
+		zone.dog_locations = [];
+		zone.screecher_locations = [];
+		zone.avogadro_locations = [];
+		zone.inert_locations = [];
+		zone.quad_locations = [];
+		zone.leaper_locations = [];
+		zone.brutus_locations = [];
+		zone.mechz_locations = [];
+		zone.astro_locations = [];
+		zone.napalm_locations = [];
+		zone.zbarriers = [];
+		zone.magic_boxes = [];
+		barricades = getstructarray( "exterior_goal", "targetname" );
+		box_locs = getstructarray( "treasure_chest_use", "targetname" );
+
+		for ( i = 0; i < spots.size; i++ )
+		{
+			spots[i].zone_name = zone_name;
+
+			if ( !( isdefined( spots[i].is_blocked ) && spots[i].is_blocked ) )
+				spots[i].is_enabled = 1;
+			else
+				spots[i].is_enabled = 0;
+
+			tokens = strtok( spots[i].script_noteworthy, " " );
+
+			foreach ( token in tokens )
+			{
+				if ( token == "dog_location" )
+				{
+					zone.dog_locations[zone.dog_locations.size] = spots[i];
+					continue;
+				}
+
+				if ( token == "avogadro_location" )
+				{
+					zone.avogadro_locations[zone.avogadro_locations.size] = spots[i];
+					continue;
+				}
+
+				if ( token == "brutus_location" )
+				{
+					zone.brutus_locations[zone.brutus_locations.size] = spots[i];
+					continue;
+				}
+
+				if ( token == "mechz_location" )
+				{
+					zone.mechz_locations[zone.mechz_locations.size] = spots[i];
+					continue;
+				}
+
+				zone.spawn_locations[zone.spawn_locations.size] = spots[i];
+			}
+
+			if ( isdefined( spots[i].script_string ) )
+			{
+				barricade_id = spots[i].script_string;
+
+				for ( k = 0; k < barricades.size; k++ )
+				{
+					if ( isdefined( barricades[k].script_string ) && barricades[k].script_string == barricade_id )
+					{
+						nodes = getnodearray( barricades[k].target, "targetname" );
+
+						for ( j = 0; j < nodes.size; j++ )
+						{
+							if ( isdefined( nodes[j].type ) && nodes[j].type == "Begin" )
+								spots[i].target = nodes[j].targetname;
+						}
+					}
+				}
+			}
+		}
+
+		for ( i = 0; i < barricades.size; i++ )
+		{
+			targets = getentarray( barricades[i].target, "targetname" );
+
+			for ( j = 0; j < targets.size; j++ )
+			{
+				if ( targets[j] iszbarrier() && isdefined( targets[j].script_string ) && targets[j].script_string == zone_name )
+					zone.zbarriers[zone.zbarriers.size] = targets[j];
+			}
+		}
+
+		for ( i = 0; i < box_locs.size; i++ )
+		{
+			chest_ent = getent( box_locs[i].script_noteworthy + "_zbarrier", "script_noteworthy" );
+
+			if ( chest_ent entity_in_zone( zone_name, 1 ) )
+				zone.magic_boxes[zone.magic_boxes.size] = box_locs[i];
+		}
+	}
+}
+
+create_spawner_list_override( zkeys )
+{
+	/*
+
+	*/
 }
