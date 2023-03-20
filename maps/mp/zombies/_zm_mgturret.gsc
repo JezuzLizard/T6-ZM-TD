@@ -237,7 +237,7 @@ burst_fire_unmanned()
 		{
 			if ( turretstate != "fire" )
 			{
-				print( "turretstate set to fire" );
+				//print( "turretstate set to fire" );
 				turretstate = "fire";
 				self playsound( "mpl_turret_alert" );
 				self thread do_shoot();
@@ -249,9 +249,9 @@ burst_fire_unmanned()
 			if ( !isDefined( dumped ) )
 			{
 				dumped = true;
-				if ( isDefined( level.custom_turret_weapon ) )
+				if ( isDefined( self.custom_turret_weapon ) )
 				{
-					dumpTurret( self, level.custom_turret_weapon + "_inuse" );
+					dumpTurret( self, self.custom_turret_weapon + "_inuse" );
 				}
 				else 
 				{
@@ -268,13 +268,13 @@ burst_fire_unmanned()
 
 		if ( turretstate != "aim" )
 		{
-			print( "turretstate set to aim" );
+			//print( "turretstate set to aim" );
 			turretstate = "aim";
 		}
 		self thread turret_timer( duration );
 
 		self waittill( "turretstatechange" );
-		print( "Turret loop" );
+		//print( "Turret loop" );
 	}
 }
 
@@ -282,11 +282,37 @@ do_shoot()
 {
 	self endon( "death" );
 	self endon( "turretstatechange" );
-
+	fire_rate = 1;
+	switch ( self.currentweapon )
+	{
+		case "m1911_upgraded_zm":
+		case "usrpg_zm":
+		case "saritch_zm":
+			fire_rate = 1.5;
+			break;
+		case "raygun_mark2_upgraded_zm":
+			fire_rate = 0.2;
+			break;
+		case "dsr50_zm":
+			fire_rate = 2;
+			break;
+		case "ray_gun_zm":
+			fire_rate = 0.5;
+			break;
+		case "rpd_zm":
+		case "galil_zm":
+			fire_rate = 0.05;
+			break;
+		case "judge_zm":
+		case "fivesevendw_zm":
+			fire_rate = 0.75;
+			break;
+	}
 	for (;;)
 	{
 		self shootturret();
-		wait 0.112;
+		wait fire_rate;
+		//wait 0.112;
 	}
 }
 

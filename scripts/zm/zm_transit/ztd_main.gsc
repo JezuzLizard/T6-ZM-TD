@@ -4,6 +4,8 @@
 #include maps\mp\zombies\_zm_spawner;
 #include maps\mp\zombies\_zm_zonemgr;
 #include maps\mp\zombies\_zm;
+#include maps\mp\zombies\_zm_equip_turret;
+#include maps\mp\zombies\_zm_weapons;
 
 #include scripts\zm\_gametype_setup;
 
@@ -11,6 +13,8 @@
 #include scripts\zm\zm_transit\ztd_placeables\shield;
 #include scripts\zm\zm_transit\ztd_placeables\turbine;
 #include scripts\zm\zm_transit\ztd_placeables\turret;
+
+#include scripts\zm\zm_transit\ztd_utility;
 
 main()
 {
@@ -22,10 +26,21 @@ main()
 	replaceFunc( maps\mp\zombies\_zm_ai_basic::find_flesh, ::find_flesh_override );
 	replaceFunc( maps\mp\zombies\_zm_zonemgr::zone_init, ::zone_init_override );
 	replaceFunc( maps\mp\zombies\_zm::init_levelvars, ::init_levelvars_override );
+	replaceFunc( maps\mp\zombies\_zm_utility::wait_network_frame, ::wait_network_frame_override );
+	replaceFunc( maps\mp\animscripts\zm_utility::wait_network_frame, ::wait_network_frame_override );
+	replaceFunc( maps\mp\zombies\_zm_utility::include_weapon, ::include_weapon_override );
+
+	replaceFunc( maps\mp\zm_transit_classic::init_bus, ::init_bus_override );
+	replaceFunc( maps\mp\zm_transit_classic::banking_and_weapon_locker_main, ::banking_and_weapon_locker_main_override );
+	replaceFunc( maps\mp\zm_transit_sq::init, ::sq_init_override );
+	replaceFunc( maps\mp\zm_transit_sq::start_transit_sidequest, ::start_transit_sidequest_override );
+	replaceFunc( maps\mp\zm_transit_power::initializepower, ::initializepower_override );
 
 	level.round_spawn_func = ::round_spawning_override;
 	level.round_think_func = ::round_think_override;
-	level.create_spawner_list_func = ::create_spawner_list_override;
+	//level.create_spawner_list_func = ::create_spawner_list_override;
+
+	delete_buildable_parts();
 
 	level thread on_player_connect();
 	level thread command_thread();
@@ -33,7 +48,51 @@ main()
 	print( getDvar( "ztd_gametype" ) );
 	print( getDvar( "ztd_location" ) );
 
-	add_struct_location_gamemode_func( "normal", "transit", ::ztd_normal_transit );
+	//setWeaponField( "m1911_zm", "damage", 1000 );
+	//setWeaponField( "m1911_zm", "mindamage", 6969 );
+	//setWeaponField( "m1911_zm", "clipsize", 6969 ); //Makes you constantly reload
+	//setWeaponField( "m1911_zm", "firetime", 50 );
+	//setWeaponField( "m1911_zm", "firetype", 0 );
+	//setWeaponField( "m1911_zm", "weaponClass", 3 );
+
+	//add_struct_location_gamemode_func( "normal", "transit", ::ztd_normal_transit );
+
+	//Good fields to change:
+	//firetime - works fine on client
+	//firetype - works fine on client
+	//nopartialreload - works fine on client
+	//clipsize - works fine on client
+	//firedelay - works fine on client
+	//burstfiredelay - works fine on client
+	//startammo - works fine on client
+	//maxammo - only works when GScr_GiveMaxAmmo is called
+	//meleetime - works fine on client
+	//meleedamage - works fine on client
+	//meleedelay - works fine on client
+	//sharedAmmoCap - works fine on client needs to be set for grenades
+	//cookoffhold - works fine on client for grenades
+	//explosionRadius - works fine on client but doesn't affect the explosion fx
+	//explosionInnerDamage - works fine on client
+	//explosionOuterDamage - works fine on client
+	//projectileSpeed - works fine on client only applies to projectile type weapons
+	//timeddetonation - works fine on client only applies to grenades
+	//keepRolling - works fine on client only applies to grenades
+	//explosionRadius - works fine on client only applies to projectile type weapons
+	//custombool0 - works fine on client only applies to projectile type weapons makes the weapon have infinite penetration
+	//ammoCountClipRelative - works fine on client makes reserve ammo not dependent on the clipsize
+	//projectileLifetime -  works fine on client makes projectiles expire after the float duration
+
+	//Desynced fields
+	//shotcount - doesn't show extra bullets on the client only applies to bullet weapons that weapclass of pistol_spread or spread
+	//reloadtime - doesn't speed up the animation
+	//reloadtimeempty - doesn't speed up the animation
+	//reloadquicktime - doesn't speed up the animation
+	//reloadquickemptytime - doesn't speed up the animation
+	//unlimitedammo - client keeps trying to reload after firing one bullet used by turrets
+
+	//Non working fields
+	//weaponclass - doesn't appear to do anything when set
+	//explosionCameraShakeScale - only clientside
 }
 
 init()
@@ -52,9 +111,24 @@ init()
 	level.ztd_turret_types[ 10 ] = "knife_ballistic_zm";
 	level.ztd_turret_types[ 11 ] = "raygun_mark2_upgraded_zm";
 
+	level.closest_player_override = undefined;
+
 	level waittill( "connected", player );
 	player waittill( "spawned_player" );
+	player thread rotate_penetration_count();
 	wait 5;
+	while ( !isDefined( testclient ) )
+	{
+		testclient = addTestClient();
+		wait 0.05;
+	}
+	wait 5;
+	player allowProne( false );
+	wait 5;
+	player allowCrouch( false );
+	wait 5;
+	player allowStand( false );
+
 	player notify( "stop_player_out_of_playable_area_monitor" );
 	level.player_out_of_playable_area_monitor = false;
 	while ( true )
@@ -62,6 +136,36 @@ init()
 		level.player_out_of_playable_area_monitor = false;
 		wait 0.05;
 	}
+}
+
+rotate_penetration_count()
+{
+	self endon( "disconnect" );
+	rotations = 0;
+	while ( true )
+	{
+		if ( ( rotations % 2 ) == 0 )
+		{
+			self.jumpheightoverride = 512;
+		}
+		else 
+		{
+			self.jumpheightoverride = 39;
+		}
+		self iPrintLn( "Your jumpheight is now " + self get( "jumpheightoverride" ) );
+		wait 10;
+		rotations++;
+	}
+}
+
+all_zombies_path_to_exit( position_to_play )
+{
+	attractor_point = spawn( "script_model", position_to_play );
+	attractor_point setmodel( "tag_origin" );
+	attractor_point create_zombie_point_of_interest( 1536, 32, 10000 );
+	attractor_point.attract_to_origin = 1;
+	attractor_point thread create_zombie_point_of_interest_attractor_positions( 4, 45 );
+	attractor_point thread maps\mp\zombies\_zm_weap_cymbal_monkey::wait_for_attractor_positions_complete();
 }
 
 ztd_normal_transit()
@@ -84,6 +188,10 @@ ztd_normal_transit()
 	register_ztd_zombie_spawn( "zombie", undefined, undefined, "riser_location", ( -6136.35, 5358.91, -63.875 ), ( 0, 45, 0 ) );
 
 	level.struct_class_names[ "script_noteworthy" ][ "inert_location" ] = [];
+
+	//Exit
+	exit_point = ( -7893.29, 4764.46, -57.8442 );
+	level thread all_zombies_path_to_exit( exit_point );
 }
 
 register_ztd_zombie_spawn( ai_type, zone = "none", script_string = "find_flesh", spawn_type, origin, angles )
@@ -141,12 +249,13 @@ print_origin()
 			anglestoforward_str = "anglestoforward: " + anglesToForward( self.angles );
 			zone_str = self maps\mp\zombies\_zm_zonemgr::get_player_zone();
 			turrets_owned_str = self.name + " owns " + self.owned_turrets.size + " turrets";
-			//turrets_total_and_max_count = "Turret counts: " + get_total_turrets() + " limit: " + get_turret_limit();
+			total_turrets_owned_str = getEntArray( "misc_turret", "classname" );
 
 			logprint( origin_str + "\n" );
 			logprint( angles_str + "\n" );
 			logprint( anglestoforward_str + "\n" );
 			logprint( turrets_owned_str + "\n" );
+
 			
 			print( origin_str );
 			print( angles_str );
@@ -160,7 +269,13 @@ print_origin()
 				zone_str = undefined;
 				zone_message_str = undefined;
 			}
-			
+			if ( isDefined( total_turrets_owned_str ) )
+			{
+				turret_message_str = "There are " + total_turrets_owned_str.size + " total turrets with a max of " + getDvarIntDefault( "sv_max_turrets", 96 );
+				logprint( turret_message_str + "\n" );
+				print( turret_message_str );
+				turret_message_str = undefined;
+			}
 			origin_str = undefined;
 			angles_str = undefined;
 			anglestoforward_str = undefined;
@@ -340,6 +455,28 @@ command_thread()
 		commands = strTok( message, " " );
 		switch ( commands[ 0 ] )
 		{
+			case "setweaponfield":
+				if ( commands.size < 4 )
+				{
+					player iPrintln( "Usage: /weaponfield <weapon> <field> <value>" );
+					continue;
+				}
+				if ( is_str_int( commands[ 3 ] ) )
+				{
+					value = int( commands[ 3 ] );
+				}
+				else if ( is_str_float( commands[ 3 ] ) )
+				{
+					value = float( commands[ 3 ] );
+				}
+				else 
+				{
+					player iPrintln( "Unsupported type for setweaponfield" );
+					continue;
+				}
+				setWeaponField( commands[ 1 ], commands[ 2 ], value );
+				player iPrintLn( "Set " + commands[ 1 ] + " " + commands[ 2 ] + " to " + commands[ 3 ] );
+				break;
 			case "give":
 				if ( commands.size < 2 )
 				{
@@ -360,15 +497,22 @@ command_thread()
 					case "turret":
 						if ( isDefined( commands[ 2 ] ) )
 						{
+							print( commands[ 2 ] );
 							if ( commands[ 2 ] == "random" )
 							{
-								level.custom_turret_weapon = level.ztd_turret_types[ randomInt( level.ztd_turret_types.size ) ];
+								player.custom_turret_weapon = level.ztd_turret_types[ randomInt( level.ztd_turret_types.size ) ];
 							}
 							else 
 							{
-								level.custom_turret_weapon = commands[ 2 ];
+								player.custom_turret_weapon = commands[ 2 ];
 							}
 						}
+						else 
+						{
+							player.custom_turret_weapon = "zombie_bullet_crouch_zm";
+						}
+						print( isDefined( player.custom_turret_weapon ) );
+						print( player.custom_turret_weapon );
 						player zombie_devgui_equipment_give( "equip_turret_zm" );
 						break;
 					case "electrictrap":
@@ -389,6 +533,14 @@ command_thread()
 					case "headchopper":
 						player zombie_devgui_equipment_give( "equip_headchopper_zm" );
 						break;
+					case "weapon":
+						if ( commands.size < 3 )
+						{
+							player iPrintLn( "Usage: /give weapon <weapon>" );
+							continue;
+						}
+						player takeWeapon( player getCurrentWeapon() );
+						player weapon_give( commands[ 2 ] );
 				}
 				break;
 			case "dumpturrets":
@@ -397,6 +549,77 @@ command_thread()
 					for ( i = 0; i < player.owned_turrets.size; i++ )
 					{
 						dumpTurret( player.owned_turrets[ i ].turret, player.owned_turrets[ i ].turret.currentweapon + "_user_dumped_" + player.name + "_" + i );
+					}
+				}
+				break;
+			case "dumpallturrets":
+				foreach ( player in level.players )
+				{
+					if ( isDefined( player.owned_turrets ) )
+					{
+						for ( i = 0; i < player.owned_turrets.size; i++ )
+						{
+							dumpTurret( player.owned_turrets[ i ].turret, player.owned_turrets[ i ].turret.currentweapon + "_user_dumped_" + player.name + "_" + i );
+						}
+					}
+				}
+				break;
+			case "points":
+				if ( isDefined( commands[ 1 ] ) )
+				{
+					points_val = int( commands[ 1 ] );
+				}
+				else 
+				{
+					points_val = 10000;
+				}
+				player.score += points_val;
+				break;
+			case "spawnturret":
+				if ( isDefined( commands[ 1 ] ) )
+				{
+					count = int( commands[ 1 ] );
+				}
+				else 
+				{
+					count = 1;
+				}
+
+				player.custom_turret_weapon = "zombie_bullet_crouch_zm";
+				if ( isDefined( commands[ 3 ] ) )
+				{
+					//points = create_polygon( player.origin, count, int( commands[ 3 ] ) );
+					//points = create_spiral( player.origin, int( commands[ 3 ] ) );
+					points = create_sphere( player.origin, int( commands[ 3 ] ) );
+					foreach ( point in points )
+					{
+						if ( commands[ 2 ] == "random" )
+						{
+							player.custom_turret_weapon = level.ztd_turret_types[ randomInt( self.ztd_turret_types.size ) ];
+						}
+						else 
+						{
+							player.custom_turret_weapon = commands[ 2 ];
+						}
+						player startturretdeploy2( point );
+					}
+				}
+				else 
+				{
+					for ( i = 0; i < count; i++ )
+					{
+						if ( isDefined( commands[ 2 ] ) )
+						{
+							if ( commands[ 2 ] == "random" )
+							{
+								player.custom_turret_weapon = level.ztd_turret_types[ randomInt( self.ztd_turret_types.size ) ];
+							}
+							else 
+							{
+								player.custom_turret_weapon = commands[ 2 ];
+							}
+						}
+						player startturretdeploy2();
 					}
 				}
 				break;
@@ -905,7 +1128,6 @@ round_spawning_override()
 
 	while ( true )
 	{
-		print( "round_spawning() loop start" );
 		while ( get_current_zombie_count() >= level.zombie_ai_limit || level.zombie_total <= 0 )
 			wait 0.1;
 
@@ -1293,4 +1515,119 @@ create_spawner_list_override( zkeys )
 	/*
 
 	*/
+}
+
+include_weapon_override( weapon_name, in_box, collector, weighting_func )
+{
+/#
+	println( "ZM >> include_weapon = " + weapon_name );
+#/
+	if ( !isdefined( in_box ) )
+		in_box = 1;
+
+	if ( !isdefined( collector ) )
+		collector = 0;
+
+	maps\mp\zombies\_zm_weapons::include_zombie_weapon( weapon_name, in_box, collector, weighting_func );
+
+	dumpWeapon( weapon_name );
+}
+
+get_next_point( vector, angles, num )
+{
+	angles_to_forward = anglestoforward( angles );
+	x = vector[ 0 ] + num * angles_to_forward[ 0 ];
+	y = vector[ 1 ] + num * angles_to_forward[ 1 ];
+	final_vector = ( x, y, vector[ 2 ] );
+	//logprint( "final_vector: " + final_vector + " vector: " + vector + " angles: " + angles + " angles_to_forward: " + angles_to_forward + " num: " + num + "\n" );
+	return final_vector;
+}
+
+create_polygon( start_vector, num_sides, radius )
+{
+	const pi = 3.14;
+	polygon = [];
+	radians = sin(pi / num_sides ) * (180 / pi);
+	length_of_side = 2 * radius * radians;
+	angle_of_side = 360 / num_sides;
+	polygon[ 0 ] = get_next_point( start_vector, ( 0, -90, 0 ), radius );
+	for ( i = 1; i < num_sides; i++ )
+	{
+		polygon[ i ] = get_next_point( polygon[ i - 1 ], ( 0, angle_of_side * i, 0 ), length_of_side );
+	}
+	return polygon;
+}
+
+create_spiral( start_vector, radius )
+{
+	points = [];
+	for (i = 0; i < 360; i += 4)
+	{
+		radius -= 10;
+		x = cos(i) * radius;
+		y = sin(i) * radius;
+		point = (start_vector[0] + x, start_vector[1] + y, start_vector[2]);
+		points[ points.size ] = point;
+	}
+	return points;
+}
+
+create_sphere( start_vector, radius )
+{
+	points = [];
+	for (i = 0; i < 180; i += 36)
+	{
+		current_radius = abs(sin(i) * radius);
+	//current_radius = radius;
+		for (o = 0; o < 360; o += 36)
+		{
+			x = cos(o) * current_radius;
+			y = sin(o) * current_radius;
+			point = (x, y, (i / 180) * radius * 2) + start_vector;
+			points[ points.size ] = point;
+		}
+	}
+	return points;
+}
+
+init_bus_override()
+{
+
+}
+
+delete_buildable_parts()
+{
+	ents = getEntArray();
+	foreach ( ent in ents )
+	{
+		if ( isDefined( ent ) && isDefined( ent.script_gameobjectname ) && ent.script_gameobjectname == "zclassic" )
+		{
+			ent delete();
+		}
+	}
+}
+
+wait_network_frame_override()
+{
+	wait 0.1;
+}
+
+banking_and_weapon_locker_main_override()
+{
+}
+
+sq_init_override()
+{
+}
+
+start_transit_sidequest_override()
+{
+}
+
+initializepower_override()
+{
+	registerclientfield( "toplayer", "power_rumble", 1, 1, "int" );
+	if ( !isdefined( level.vsmgr_prio_visionset_zm_transit_power_high_low ) )
+		level.vsmgr_prio_visionset_zm_transit_power_high_low = 20;
+	maps\mp\_visionset_mgr::vsmgr_register_info( "visionset", "zm_power_high_low", 1, level.vsmgr_prio_visionset_zm_transit_power_high_low, 7, 1, ::vsmgr_lerp_power_up_down, 0 );
 }

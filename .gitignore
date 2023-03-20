@@ -1,6 +1,7 @@
 *.bat
 *.exe
 /compiled
+/decompiled
 maps/mp/animscripts/zm_shared.gsc
 maps/mp/zm_tomb_giant_robot.gsc
 scripts/zm/origins_test_script.gsc

@@ -56,9 +56,9 @@ watchturretuse()
 
 		if ( weapname == level.turret_name )
 		{
-			if ( self.owned_turrets.size >= getDvarIntDefault( "sv_max_turrets", 23 ) )
+			if ( self.owned_turrets.size >= getDvarIntDefault( "sv_max_turrets", 96 ) )
 			{
-				self cleanupturret( self.owned_turrets[ 0 ] );
+				self cleanup_buildable_turret( self.owned_turrets[ 0 ] );
 			}
 			self thread startturretdeploy( weapon );
 		}
@@ -66,7 +66,7 @@ watchturretuse()
 }
 
 //TODO: fix removing old turrets
-cleanupturret( turret_to_delete )
+cleanup_buildable_turret( turret_to_delete )
 {
 	if ( isdefined( turret_to_delete.stub ) )
 	{
@@ -92,12 +92,17 @@ cleanupturret( turret_to_delete )
 	turret_to_delete delete();
 }
 
+cleanup_turret( turret_to_delete )
+{
+	turret_to_delete delete();
+}
+
 delete_turrets_on_disconnect()
 {
 	self waittill( "disconnect" );
 	for ( i = 0; i < self.owned_turrets.size; i++ )
 	{
-		cleanupturret( self.owned_turrets[ i ] );
+		cleanup_buildable_turret( self.owned_turrets[ i ] );
 	}
 }
 
@@ -147,7 +152,7 @@ add_turret_weapon(weapon)
 	self hidepart("tag_part_02");
 
 	model = spawn("script_model", self.origin + (-1, 0, 48));
-	model setmodel(getweaponmodel(level.custom_turret_weapon));
+	model setmodel(getweaponmodel(weapon));
 	model linkto(self, "tag_aim");
 
 	self thread delete_turret_weapon(model);
@@ -175,11 +180,11 @@ startturretdeploy( weapon )
 		if ( !isdefined( weapon ) )
 			return;
 
-		if ( isDefined( level.custom_turret_weapon ) )
+		if ( isDefined( self.custom_turret_weapon ) )
 		{
-			turret = spawnTurret( "misc_turret", weapon.origin, level.custom_turret_weapon );
-			turret.currentweapon = level.custom_turret_weapon;
-			dumpTurret( turret, level.custom_turret_weapon );
+			turret = spawnTurret( "misc_turret", weapon.origin, self.custom_turret_weapon );
+			turret.currentweapon = self.custom_turret_weapon;
+			dumpTurret( turret, self.custom_turret_weapon );
 		}
 		else 
 		{
@@ -192,9 +197,9 @@ startturretdeploy( weapon )
 		turret setmodel( "p6_anim_zm_buildable_turret" );
 		//turret attach
 		//turret setModel( "t6_wpn_zmb_raygun_world" );
-		if ( level.custom_turret_weapon != "zombie_bullet_crouch_zm" )
+		if ( isDefined( self.custom_turret_weapon ) && self.custom_turret_weapon != "zombie_bullet_crouch_zm" )
 		{
-			turret add_turret_weapon(level.custom_turret_weapon);
+			turret add_turret_weapon(self.custom_turret_weapon);
 		}
 		turret.origin = weapon.origin;
 		turret.angles = weapon.angles;
@@ -243,9 +248,9 @@ startturretdeploy( weapon )
 		turret setTurretField( "aispread", 2.0 );
 		turret setTurretField( "playerspread", 2.0 );
 		turret setturretteam( self.team );
-		if ( isDefined( level.custom_turret_weapon ) )
+		if ( isDefined( self.custom_turret_weapon ) )
 		{
-			dumpTurret( turret, level.custom_turret_weapon + "_modified" );
+			dumpTurret( turret, self.custom_turret_weapon + "_modified" );
 		}
 		else 
 		{
@@ -276,6 +281,8 @@ startturretdeploy( weapon )
 		turret thread print_health();
 
 		self.owned_turrets[ self.owned_turrets.size ] = weapon;
+
+		//self.custom_turret_weapon = undefined;
 
 		while ( isdefined( weapon ) )
 		{
@@ -322,15 +329,15 @@ buildable_turret_waittill_damage()
 		self.turret waittill( "damage", amount, attacker, direction, point, mod, tagname, modelname, partname, weaponname, idflags );
 		if ( isDefined( self.turret.owner ) )
 		{
-			print( self.turret.owner.name + "'s turret took " + amount + " damage from " + attacker.classname + " with mod " + mod + "  health remaining: " + self.turret.health );
+			//print( self.turret.owner.name + "'s turret took " + amount + " damage from " + attacker.classname + " with mod " + mod + "  health remaining: " + self.turret.health );
 		}
 		else if ( isDefined( self.turret.currentweapon ) && isDefined( attacker.classname ) )
 		{
-			print( "turret of type " + self.turret.currentweapon + " took " + amount + " damage from " + attacker.classname + " with mod " + mod + "  health remaining: " + self.turret.health );
+			//print( "turret of type " + self.turret.currentweapon + " took " + amount + " damage from " + attacker.classname + " with mod " + mod + "  health remaining: " + self.turret.health );
 		}
 		else
 		{
-			print( "turret took " + amount + " damage health remaining: " + self.turret.health );
+			//print( "turret took " + amount + " damage health remaining: " + self.turret.health );
 		}
 		self rollback_turret_health( amount );
 		if ( !isDefined( attacker ) )
@@ -348,7 +355,7 @@ buildable_turret_waittill_damage()
 		self.damagetaken += amount;
 		if ( self.damagetaken >= self.maxhealth )
 		{
-			cleanupturret( self );
+			cleanup_buildable_turret( self );
 		}
 	}
 }
@@ -356,14 +363,149 @@ buildable_turret_waittill_damage()
 rollback_turret_health( amount )
 {
 	self.health += amount;
-	self.turret.health += amount;
 }
 
 print_health()
 {
 	while ( isDefined( self ) )
 	{
-		print( "turret health " + self.health );
+		//print( "turret health " + self.health );
 		wait 1;
+	}
+}
+
+startturretdeploy2( custom_origin )
+{
+	self endon( "death" );
+	self endon( "disconnect" );
+	self endon( "equip_turret_zm_taken" );
+
+	if ( isDefined( custom_origin ) )
+	{
+		spawn_origin = custom_origin;
+	}
+	else 
+	{
+		spawn_origin = self.origin;
+	}
+
+	if ( !isdefined( level.turret_max_health ) )
+		level.turret_max_health = 1000;
+
+	level.ignore_equipment = ::zombie_ignore_equipment;
+
+	if ( isDefined( self.custom_turret_weapon ) )
+	{
+		turret = spawnTurret( "misc_turret", spawn_origin, self.custom_turret_weapon );
+		turret.currentweapon = self.custom_turret_weapon;
+		dumpTurret( turret, self.custom_turret_weapon );
+	}
+	else 
+	{
+		turret = spawnturret( "misc_turret", spawn_origin, "zombie_bullet_crouch_zm" );
+		turret.currentweapon = "zombie_bullet_crouch_zm";
+		dumpTurret( turret, "zombie_bullet_crouch_zm" );
+	}
+	turret.turrettype = "sentry";
+	turret setturrettype( turret.turrettype );
+	turret setmodel( "p6_anim_zm_buildable_turret" );
+	if ( isDefined( self.custom_turret_weapon ) && self.custom_turret_weapon != "zombie_bullet_crouch_zm" )
+	{
+		turret add_turret_weapon(self.custom_turret_weapon);
+	}
+	turret.origin = spawn_origin;
+	turret.angles = self.angles;
+	//turret linkto( self );
+	turret makeunusable();
+	turret.owner = self;
+	turret setowner( turret.owner );
+
+	turret.health = 10000000;
+
+	turret maketurretunusable();
+	//turret MakeTurretUsable();
+	turret setmode( "auto_nonai" );
+	turret setdefaultdroppitch( 45.0 );
+	turret setconvergencetime( 0.3 );
+	turret setTopArc(180);
+	turret setRightArc(180);
+	turret setBottomArc(180);
+	turret setLeftArc(180);
+	turret setAiSpread(2);
+	turret setPlayerSpread(2);
+
+	turret setTurretField( "initialYawmin", -90.0 );
+	turret setTurretField( "initialYawmax", 90.0 );
+	turret setTurretField( "forwardangledot", -1.0 );
+	turret setTurretField( "suppresstime", 3000 );
+	turret setTurretField( "stance", 1 );
+	turret setTurretField( "accuracy", 0.38 );
+	turret setTurretField( "aispread", 2.0 );
+	turret setTurretField( "playerspread", 2.0 );
+	turret setturretteam( self.team );
+	if ( isDefined( self.custom_turret_weapon ) )
+	{
+		dumpTurret( turret, self.custom_turret_weapon + "_modified" );
+	}
+	else 
+	{
+		dumpTurret( turret, "zombie_bullet_crouch_zm_modified" );
+	}
+	turret.team = self.team;
+	turret.damage_own_team = false;
+	turret.turret_active = 1;
+
+	turret.script_delay_min = 0.05;
+	turret.script_delay_max = 0.1;
+	turret.script_burst_min = 10;
+	turret.script_burst_max = 20;
+
+	turret.arclimits = turret getTurretArcLimits();
+
+	turret thread maps\mp\zombies\_zm_mgturret::burst_fire_unmanned();
+
+	turret thread turret_waittill_damage();
+
+	self.owned_turrets[ self.owned_turrets.size ] = turret;
+
+	//self.custom_turret_weapon = undefined;
+}
+
+//self == turret
+turret_waittill_damage()
+{
+	while ( isDefined( self ) )
+	{
+		self waittill( "damage", amount, attacker, direction, point, mod, tagname, modelname, partname, weaponname, idflags );
+		if ( isDefined( self.owner ) )
+		{
+			//print( self.owner.name + "'s turret took " + amount + " damage from " + attacker.classname + " with mod " + mod + "  health remaining: " + self.health );
+		}
+		else if ( isDefined( self.currentweapon ) && isDefined( attacker.classname ) )
+		{
+			//print( "turret of type " + self.currentweapon + " took " + amount + " damage from " + attacker.classname + " with mod " + mod + "  health remaining: " + self.health );
+		}
+		else
+		{
+			//print( "turret took " + amount + " damage health remaining: " + self.health );
+		}
+		self rollback_turret_health( amount );
+		if ( !isDefined( attacker ) )
+		{
+			continue;
+		}
+		if ( attacker.classname == "worldspawn" || attacker.classname == "misc_turret" )
+		{
+			continue;
+		}
+		if ( isPlayer( attacker ) )
+		{
+			continue;
+		}
+		self.damagetaken += amount;
+		if ( self.damagetaken >= self.maxhealth )
+		{
+			cleanup_turret( self );
+		}
 	}
 }
