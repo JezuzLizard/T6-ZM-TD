@@ -42,7 +42,7 @@ const char *szWeapFireTypeNames[10] =
   "3-Round Burst",
   "4-Round Burst",
   "5-Round Burst",
-  "Stacked Fire",
+  "Stacked Fire", //Shoots the the amount defined in the stackFire field from the clip at 0 firetime
   "Minigun",
   "Charge Shot",
   "Jetgun"
@@ -80,17 +80,17 @@ const char *impactTypeNames_0[16] =
 }; // idb
 const char *szProjectileExplosionNames[11] =
 {
-  "grenade",
-  "rocket",
-  "flashbang",
-  "none",
-  "dud",
-  "smoke",
-  "heavy explosive",
-  "fire",
-  "napalmblob",
-  "bolt",
-  "shrapnel span"
+  "grenade", //enables screenshake
+  "rocket", //enables screenshake
+  "flashbang", //unknown
+  "none", //no engine explosion
+  "dud", //removes explosion fx and screenshake
+  "smoke", //unknown
+  "heavy explosive", //bigger screenshake
+  "fire", //unknown
+  "napalmblob", //unknown
+  "bolt", //no explosion on impact
+  "shrapnel span" //unknown
 }; // idb
 const char *szWeapOverlayReticleNames[2] = { 
 "none", 
@@ -134,7 +134,7 @@ const char *guidedMissileNames[9] =
 const char *stickinessNames[6] =
 {
   "Don't stick",
-  "1",
+  "Stick to all",
   "Stick to all, except ai and clients",
   "Stick to ground",
   "Stick to ground, maintain yaw",

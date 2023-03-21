@@ -48,8 +48,8 @@ main()
 	print( getDvar( "ztd_gametype" ) );
 	print( getDvar( "ztd_location" ) );
 
-	level.weapon_dump_path = "asset_dumps/zm/" + getDvar( "mapname" );
-	level.weapon_parse_path = "modified_assets/zm/" + getDvar( "mapname" )
+	level.weapon_dump_path = "asset_dumps/weapons/zm/" + getDvar( "mapname" );
+	level.weapon_parse_path = "modified_assets/weapons/zm/" + getDvar( "mapname" );
 
 	//setWeaponField( "m1911_zm", "damage", 1000 );
 	//setWeaponField( "m1911_zm", "mindamage", 6969 );
@@ -63,9 +63,8 @@ main()
 	//Good fields to change:
 	//firetime - works fine on client
 	//firetype - works fine on client if a gun is already burst fire client prediction will be wrong
-	//nopartialreload - works fine on client
 	//clipsize - works fine on client
-	//firedelay - works fine on client
+	//firedelay - works fine on client delay in milliseconds before a shot is fired when the client attacks
 	//burstfiredelay - works fine on client
 	//startammo - works fine on client
 	//maxammo - only works when GScr_GiveMaxAmmo is called
@@ -73,26 +72,40 @@ main()
 	//meleedamage - works fine on client
 	//meleedelay - works fine on client
 	//sharedAmmoCap - works fine on client needs to be set for grenades
-	//explosionRadius - works fine on client but doesn't affect the explosion fx
+	//explosionRadius - works fine on client but doesn't affect the explosion fx only applies to projectile type weapons
 	//explosionInnerDamage - works fine on client
 	//explosionOuterDamage - works fine on client
 	//projectileSpeed - works fine on client only applies to projectile type weapons
 	//timeddetonation - works fine on client only applies to grenades
 	//keepRolling - works fine on client only applies to grenades
 	//isrollinggrenade - works fine on client only applies to grenades
-	//explosionRadius - works fine on client only applies to projectile type weapons
 	//custombool0 - works fine on client only applies to projectile type weapons makes the weapon have infinite penetration
 	//ammoCountClipRelative - works fine on client makes reserve ammo not dependent on the clipsize
 	//projectileLifetime -  works fine on client makes projectiles expire after the float duration
-	//adsfire - works fine on client when true you have to ads to fire
 	//reloadammoadd - works fine on client
 	//reloadStartAdd - works fine on client
 	//projImpactExplode - doesn't do anything unless stickiness is set to stick
 	//stickiness - works fine on client only works if projImpactExplode is set to 0
 	//cliponly - works fine on client makes the gun not have reserve ammo
 	//throwBack - works fine on client
+	//damage - works fine on client
+	//minDamage - works fine on client
+	//minDamageRange - works fine on client affects shotgun max bullet range
+	//damage2 - 5 - works fine on client
+	//damagerange2 - 5 workds fine on client
+	//maxDamageRange - works fine on client
+	//playerDamage - works fine on client
+	//minPlayerDamage - works fine on client
+	//meleeDamage -works fine on client
+	//forcebounce - unknown what this does
+	//retrievable - works fine on client used by ballistic knife
+	//projExplosionType - doesn't set the explosion fx but enables the screenshake
+	//explodeOnGround - works fine on client makes a grenade blow up when hitting the ground
+	//locs - works fine on client
 
 	//Desynced fields
+	//adsfire - client prediction is off when true you have to ads to fire
+	//nopartialreload - client prediction is off
 	//offhandslot - client prediction is off when throwing the original slot type
 	//inventorytype - client prediction is off
 	//impacttype - client prediction is off
@@ -119,6 +132,11 @@ main()
 	//rechamberTime - only works properly for boltaction weapons
 	//rechamberBoltTime - only works properly for boltaction weapons
 	//cookoffhold - doesn't pulse the crosshair for grenades
+	//adsSpread - client prediction is off
+	//hipSpreadStandMin - client prediction is off
+	//hipSpreadDuckedMin - client prediction is off
+	//hipSpreadProneMin - client prediction is off
+	//boltaction - does a rechamber every shot when set to single fire firetype overridden by different fire types, can be combined with shotsBeforeRechamber to do a rechamber every that many rounds
 
 	//Non working fields
 	//weaponclass - doesn't appear to do anything when set
@@ -132,6 +150,24 @@ main()
 
 init()
 {
+	level.loaded_weapon_names = getAllLoadedWeaponNames();
+
+	foreach ( weapon_name in level.loaded_weapon_names )
+	{
+		if ( weapon_name == "" )
+		{
+			continue;
+		}
+		dumpWeapon( weapon_name, level.weapon_dump_path );
+
+		path = level.weapon_parse_path;
+		file = path + "/" + weapon_name + ".json";
+		if ( fileExists( file ) )
+		{
+			parseWeapon( weapon_name, path );
+		}
+	}
+
 	level.ztd_turret_types = [];
 	level.ztd_turret_types[ 0 ] = "sticky_grenade_zm";
 	level.ztd_turret_types[ 1 ] = "m1911_upgraded_zm";
@@ -485,7 +521,16 @@ command_thread()
 					player iPrintln( "Usage: /weaponfield <weapon> <field> <value>" );
 					continue;
 				}
-				if ( !isDefined( level.zombie_weapons[ commands[ 1 ] ] ) )
+				found_weapon = false;
+				foreach ( weapon_name in level.loaded_weapon_names )
+				{
+					if ( commands[ 1 ] == weapon_name )
+					{
+						found_weapon = true;
+						break;
+					}
+				}
+				if ( !found_weapon )
 				{
 					player iPrintLn( "Weapon " + commands[ 1 ] + " is invalid" );
 					continue;
@@ -525,7 +570,7 @@ command_thread()
 				level.modified_weapons[commands[ 1 ] ] = true;
 				break;
 			case "resetweapons":
-				foreach ( weapon in getArrayKeys( level.zombie_weapons ) )
+				foreach ( weapon in level.loaded_weapon_names )
 				{
 					path = level.weapon_dump_path;
 					file = path + "/" + weapon + ".json";
@@ -536,6 +581,20 @@ command_thread()
 					else 
 					{
 						player iPrintLn( "While attemping to reset weapons " + weapon + " doesn't exist in " + path );
+					}
+				}
+				break;
+			case "reloadweapons":
+				foreach ( weapon in level.loaded_weapon_names )
+				{
+					path = level.weapon_parse_path;
+					file = path + "/" + weapon + ".json";
+					print( "Attempting to reload " + weapon );
+					if ( fileExists( file ) )
+					{
+						print( "Reloaded " + weapon );
+						parseWeapon( weapon, level.weapon_parse_path );
+						//player iPrintLn( "Reloading weapon " + weapon + " in path " + path );
 					}
 				}
 				break;
@@ -560,7 +619,7 @@ command_thread()
 					player iPrintln( "Usage: /dumpweapon <weapon>" );
 					continue;
 				}
-				dumpWeapon( commands[ 1 ], level.weapon_dump_path );
+				dumpWeapon( commands[ 1 ], level.weapon_parse_path );
 				break;
 			case "give":
 				if ( commands.size < 2 )
@@ -582,7 +641,6 @@ command_thread()
 					case "turret":
 						if ( isDefined( commands[ 2 ] ) )
 						{
-							print( commands[ 2 ] );
 							if ( commands[ 2 ] == "random" )
 							{
 								player.custom_turret_weapon = level.ztd_turret_types[ randomInt( level.ztd_turret_types.size ) ];
@@ -596,8 +654,6 @@ command_thread()
 						{
 							player.custom_turret_weapon = "zombie_bullet_crouch_zm";
 						}
-						print( isDefined( player.custom_turret_weapon ) );
-						print( player.custom_turret_weapon );
 						player zombie_devgui_equipment_give( "equip_turret_zm" );
 						break;
 					case "electrictrap":
@@ -624,7 +680,6 @@ command_thread()
 							player iPrintLn( "Usage: /give weapon <weapon>" );
 							continue;
 						}
-						player takeWeapon( player getCurrentWeapon() );
 						player weapon_give( commands[ 2 ] );
 				}
 				break;
@@ -1614,14 +1669,6 @@ include_weapon_override( weapon_name, in_box, collector, weighting_func )
 		collector = 0;
 
 	maps\mp\zombies\_zm_weapons::include_zombie_weapon( weapon_name, in_box, collector, weighting_func );
-
-	dumpWeapon( weapon_name, getDvar( "mapname" ) );
-
-	file = "asset_dumps/weapons/zm/" + getDvar( "mapname" ) + "/" + weapon + ".json";
-	if ( fileExists( file ) )
-	{
-		parseWeapon( weapon, file );
-	}
 }
 
 get_next_point( vector, angles, num )
