@@ -13,8 +13,9 @@
 init()
 {
 	if ( !maps\mp\zombies\_zm_equipment::is_equipment_included( "equip_turret_zm" ) )
-		return;
-
+	{
+		include_equipment( "equip_turret_zm" );
+	}
 	precachemodel( "p6_anim_zm_buildable_turret" );
 	precacheturret( "zombie_bullet_crouch_zm" );
 	level.turret_name = "equip_turret_zm";
@@ -167,8 +168,6 @@ startturretdeploy( weapon )
 	if ( !isdefined( level.turret_max_health ) )
 		level.turret_max_health = 1000;
 
-	level.ignore_equipment = ::zombie_ignore_equipment;
-
 	if ( isdefined( weapon ) )
 	{
 		weapon hide();
@@ -298,11 +297,6 @@ startturretdeploy( weapon )
 	}
 }
 
-zombie_ignore_equipment( zombie )
-{
-	return true;
-}
-
 turret_waittill_stop_burst_fire_unmanned()
 {
 	self waittill( "stop_burst_fire_unmanned" );
@@ -391,8 +385,6 @@ startturretdeploy2( custom_origin )
 
 	if ( !isdefined( level.turret_max_health ) )
 		level.turret_max_health = 1000;
-
-	level.ignore_equipment = ::zombie_ignore_equipment;
 
 	if ( isDefined( self.custom_turret_weapon ) )
 	{
@@ -508,4 +500,18 @@ turret_waittill_damage()
 			cleanup_turret( self );
 		}
 	}
+}
+
+startturretdeploy3( custom_origin )
+{
+	turret = spawn( "script_model", custom_origin );
+	turret.currentweapon = "zombie_bullet_crouch_zm";
+	turret setmodel( "p6_anim_zm_buildable_turret" );
+	if ( isDefined( self.custom_turret_weapon ) && self.custom_turret_weapon != "zombie_bullet_crouch_zm" )
+	{
+		turret add_turret_weapon(self.custom_turret_weapon);
+	}
+	turret.angles = self.angles;
+	turret.owner = self;
+	turret setowner( turret.owner );
 }

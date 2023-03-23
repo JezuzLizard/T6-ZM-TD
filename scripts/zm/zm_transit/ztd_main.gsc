@@ -150,6 +150,16 @@ main()
 
 init()
 {
+	precacheshellshock( "electrocution" );
+	if ( getDvar( "g_gametype" ) != "zclassic" )
+	{
+		maps\mp\zombies\_zm_equip_turbine::init();
+		maps\mp\zombies\_zm_equip_turret::init();
+		maps\mp\zombies\_zm_equip_electrictrap::init();
+	}
+
+	level.ignore_equipment = ::zombie_ignore_equipment;
+
 	level.loaded_weapon_names = getAllLoadedWeaponNames();
 
 	foreach ( weapon_name in level.loaded_weapon_names )
@@ -166,6 +176,8 @@ init()
 		{
 			parseWeapon( weapon_name, path );
 		}
+
+		//setWeaponField( weapon_name, "barreltype", "Quad Barrel Double Alternate" );
 	}
 
 	level.ztd_turret_types = [];
@@ -569,6 +581,28 @@ command_thread()
 				player iPrintLn( "Set " + commands[ 1 ] + " " + commands[ 2 ] + " to " + value );
 				level.modified_weapons[commands[ 1 ] ] = true;
 				break;
+			case "getweaponfield":
+				if ( commands.size < 3 )
+				{
+					player iPrintln( "Usage: /weaponfield <weapon> <field>" );
+					continue;
+				}
+				found_weapon = false;
+				foreach ( weapon_name in level.loaded_weapon_names )
+				{
+					if ( commands[ 1 ] == weapon_name )
+					{
+						found_weapon = true;
+						break;
+					}
+				}
+				if ( !found_weapon )
+				{
+					player iPrintLn( "Weapon " + commands[ 1 ] + " is invalid" );
+					continue;
+				}
+				player iPrintLn( "Weapon " + commands[ 1 ] + " " + commands[ 2 ] + " is " + getWeaponField( commands[ 1 ], commands[ 2 ] ) );
+				break;
 			case "resetweapons":
 				foreach ( weapon in level.loaded_weapon_names )
 				{
@@ -580,7 +614,7 @@ command_thread()
 					}
 					else 
 					{
-						player iPrintLn( "While attemping to reset weapons " + weapon + " doesn't exist in " + path );
+						print( "While attemping to reset weapons " + weapon + " doesn't exist in " + path );
 					}
 				}
 				break;
@@ -681,6 +715,7 @@ command_thread()
 							continue;
 						}
 						player weapon_give( commands[ 2 ] );
+						break;
 				}
 				break;
 			case "dumpturrets":
@@ -1768,4 +1803,9 @@ initializepower_override()
 	if ( !isdefined( level.vsmgr_prio_visionset_zm_transit_power_high_low ) )
 		level.vsmgr_prio_visionset_zm_transit_power_high_low = 20;
 	maps\mp\_visionset_mgr::vsmgr_register_info( "visionset", "zm_power_high_low", 1, level.vsmgr_prio_visionset_zm_transit_power_high_low, 7, 1, ::vsmgr_lerp_power_up_down, 0 );
+}
+
+zombie_ignore_equipment( zombie )
+{
+	return true;
 }
