@@ -16,6 +16,8 @@
 
 #include scripts\zm\zm_transit\ztd_utility;
 
+#include scripts\zm\mod_menu\buy_menu;
+
 main()
 {
 	replaceFunc( maps\mp\zombies\_zm_utility::spawn_zombie, ::spawn_zombie_override );
@@ -146,6 +148,8 @@ main()
 
 	//Unused fields
 	//noPing
+
+	level thread buy_menu_init();
 }
 
 init()
