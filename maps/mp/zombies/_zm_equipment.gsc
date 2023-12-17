@@ -11,6 +11,8 @@
 #include maps\mp\zombies\_zm_stats;
 #include maps\mp\zombies\_zm_spawner;
 
+#include scripts\zm\ztd_equipment_manager;
+
 init()
 {
 	init_equipment_upgrade();
@@ -188,7 +190,7 @@ set_equipment_invisibility_to_player( equipment, invisible )
 	}
 }
 
-equipment_take( equipment = self get_player_equipment() )
+equipment_take( equipment = self get_player_equipment(), equipment_manager )
 {
 	if ( !isdefined( equipment ) )
 		return;
@@ -234,9 +236,12 @@ equipment_take( equipment = self get_player_equipment() )
 		if ( isdefined( primaryweapons ) && primaryweapons.size > 0 )
 			self switchtoweapon( primaryweapons[0] );
 	}
+
+	scripts\zm\ztd_equipment_manager::delete_managed_equipment_for_player_by_id( self, self.ztd_equip_manager_inst.id );
+	self.ztd_equip_manager_inst = undefined;
 }
 
-equipment_give( equipment )
+equipment_give( equipment, equipment_manager )
 {
 	if ( !isdefined( equipment ) )
 		return;
@@ -267,7 +272,7 @@ equipment_give( equipment )
 	self maps\mp\zombies\_zm_audio::create_and_play_dialog( "weapon_pickup", level.zombie_equipment[equipment].vox );
 }
 
-equipment_slot_watcher( equipment )
+equipment_slot_watcher( equipment, equipment_manager )
 {
 	self notify( "kill_equipment_slot_watcher" );
 	self endon( "kill_equipment_slot_watcher" );
@@ -457,7 +462,7 @@ show_equipment_hint_text( text )
 	self.hintelem destroy();
 }
 
-equipment_onspawnretrievableweaponobject( watcher, player )
+equipment_onspawnretrievableweaponobject( watcher, player, equipment_manager )
 {
 	self.plant_parent = self;
 	iswallmount = isdefined( level.placeable_equipment_type[self.name] ) && level.placeable_equipment_type[self.name] == "wallmount";
@@ -562,7 +567,7 @@ equipment_onspawnretrievableweaponobject( watcher, player )
 	}
 }
 
-equipment_retrieve( player )
+equipment_retrieve( player, equipment_manager )
 {
 	if ( isdefined( self ) )
 	{
@@ -572,19 +577,17 @@ equipment_retrieve( player )
 
 		if ( !isdefined( original_owner ) )
 		{
-			player equipment_give( weaponname );
+			player equipment_give( weaponname, equipment_manager );
 			self.owner = player;
 		}
 		else
 		{
-			/*
 			if ( player != original_owner )
 			{
-				equipment_transfer( weaponname, original_owner, player );
+				equipment_transfer( weaponname, original_owner, player, equipment_manager );
 				self.owner = player;
 			}
-			*/
-			player equipment_from_deployed( weaponname );
+			player equipment_from_deployed( weaponname, equipment_manager );
 		}
 
 		if ( isdefined( self.requires_pickup ) && self.requires_pickup )
@@ -594,7 +597,7 @@ equipment_retrieve( player )
 				self.owner = player;
 
 				if ( isdefined( self.damage ) )
-					player player_set_equipment_damage( weaponname, self.damage );
+					player player_set_equipment_damage( weaponname, self.damage, equipment_manager );
 
 				player [[ level.zombie_equipment[weaponname].pickup_fn ]]( self );
 			}
@@ -620,7 +623,7 @@ equipment_retrieve( player )
 	}
 }
 
-equipment_drop_to_planted( equipment, player )
+equipment_drop_to_planted( equipment, player, equipment_manager )
 {
 /#
 	if ( !isdefined( player.current_equipment ) || player.current_equipment != equipment )
@@ -630,7 +633,7 @@ equipment_drop_to_planted( equipment, player )
 	}
 #/
 	if ( isdefined( player.current_equipment ) && player.current_equipment == equipment )
-		player equipment_to_deployed( equipment );
+		player equipment_to_deployed( equipment, equipment_manager );
 
 	if ( isdefined( level.zombie_equipment[equipment].place_fn ) )
 	{
@@ -651,14 +654,14 @@ equipment_drop_to_planted( equipment, player )
 	}
 }
 
-equipment_transfer( weaponname, fromplayer, toplayer )
+equipment_transfer( weaponname, fromplayer, toplayer, equipment_manager )
 {
 	if ( is_limited_equipment( weaponname ) )
 	{
 /#
 		println( "ZM EQUIPMENT: " + weaponname + " transferred from " + fromplayer.name + " to " + toplayer.name + "\\n" );
 #/
-		toplayer equipment_orphaned( weaponname );
+		toplayer equipment_orphaned( weaponname, equipment_manager );
 		wait 0.05;
 		assert( !toplayer has_player_equipment( weaponname ) );
 		assert( fromplayer has_player_equipment( weaponname ) );
@@ -668,7 +671,7 @@ equipment_transfer( weaponname, fromplayer, toplayer )
 		if ( isdefined( level.zombie_equipment[weaponname].transfer_fn ) )
 			[[ level.zombie_equipment[weaponname].transfer_fn ]]( fromplayer, toplayer );
 
-		fromplayer equipment_release( weaponname );
+		fromplayer equipment_release( weaponname, equipment_manager );
 		assert( toplayer has_player_equipment( weaponname ) );
 		assert( !fromplayer has_player_equipment( weaponname ) );
 		equipment_damage = 0;
@@ -680,10 +683,10 @@ equipment_transfer( weaponname, fromplayer, toplayer )
 /#
 		println( "ZM EQUIPMENT: " + weaponname + " swapped from " + fromplayer.name + " to " + toplayer.name + "\\n" );
 #/
-		toplayer equipment_give( weaponname );
+		toplayer equipment_give( weaponname, equipment_manager );
 
 		if ( isdefined( toplayer.current_equipment ) && toplayer.current_equipment == weaponname )
-			toplayer equipment_to_deployed( weaponname );
+			toplayer equipment_to_deployed( weaponname, equipment_manager );
 
 		if ( isdefined( level.zombie_equipment[weaponname].transfer_fn ) )
 			[[ level.zombie_equipment[weaponname].transfer_fn ]]( fromplayer, toplayer );
@@ -694,7 +697,7 @@ equipment_transfer( weaponname, fromplayer, toplayer )
 	}
 }
 
-equipment_release( equipment )
+equipment_release( equipment, equipment_manager )
 {
 /#
 	println( "ZM EQUIPMENT: " + self.name + " release " + equipment + "\\n" );
@@ -702,19 +705,22 @@ equipment_release( equipment )
 	self equipment_take( equipment );
 }
 
-equipment_drop( equipment )
+equipment_drop( equipment, equipment_manager )
 {
 	if ( isdefined( level.zombie_equipment[equipment].place_fn ) )
 	{
-		equipment_drop_to_planted( equipment, self );
+		self.ztd_equip_manager_inst.status = "field";
+		self.ztd_equip_manager_inst = undefined;
+		equipment_drop_to_planted( equipment, self, equipment_manager );
 /#
 		println( "ZM EQUIPMENT: " + self.name + " drop to planted " + equipment + "\\n" );
 #/
 	}
 	else if ( isdefined( level.zombie_equipment[equipment].drop_fn ) )
 	{
+		self.ztd_equip_manager_inst.status = "field";
 		if ( isdefined( self.current_equipment ) && self.current_equipment == equipment )
-			self equipment_to_deployed( equipment );
+			self equipment_to_deployed( equipment, equipment_manager );
 
 		item = self [[ level.zombie_equipment[equipment].drop_fn ]]();
 
@@ -725,23 +731,25 @@ equipment_drop( equipment )
 
 			item.owner = undefined;
 			item.damage = self player_get_equipment_damage( equipment );
+			item.equip_manager = self.ztd_equip_manager_inst;
 		}
+		self.ztd_equip_manager_inst = undefined;
 /#
 		println( "ZM EQUIPMENT: " + self.name + " dropped " + equipment + "\\n" );
 #/
 	}
 	else
-		self equipment_take();
+		self equipment_take( undefined, equipment_manager );
 
 	self notify( "equipment_dropped", equipment );
 }
 
-equipment_grab( equipment, item )
+equipment_grab( equipment, item, equipment_manager )
 {
 /#
 	println( "ZM EQUIPMENT: " + self.name + " picked up " + equipment + "\\n" );
 #/
-	self equipment_give( equipment );
+	self equipment_give( equipment, equipment_manager );
 
 	if ( isdefined( level.zombie_equipment[equipment].pickup_fn ) )
 	{
@@ -751,15 +759,15 @@ equipment_grab( equipment, item )
 	}
 }
 
-equipment_orphaned( equipment )
+equipment_orphaned( equipment, equipment_manager )
 {
 /#
 	println( "ZM EQUIPMENT: " + self.name + " orphaned " + equipment + "\\n" );
 #/
-	self equipment_take( equipment );
+	self equipment_take( equipment, equipment_manager );
 }
 
-equipment_to_deployed( equipment )
+equipment_to_deployed( equipment, equipment_manager )
 {
 /#
 	println( "ZM EQUIPMENT: " + self.name + " deployed " + equipment + "\\n" );
@@ -777,7 +785,7 @@ equipment_to_deployed( equipment )
 	self setactionslot( 1, "" );
 }
 
-equipment_from_deployed( equipment = "none" )
+equipment_from_deployed( equipment = "none", equipment_manager )
 {
 /#
 	println( "ZM EQUIPMENT: " + self.name + " retrieved " + equipment + "\\n" );
@@ -819,20 +827,20 @@ eqstub_on_spawn_trigger( trigger )
 	}
 }
 
-equipment_buy( equipment )
+equipment_buy( equipment, equipment_manager )
 {
 /#
 	println( "ZM EQUIPMENT: " + self.name + " bought " + equipment + "\\n" );
 #/
 	if ( isdefined( self.current_equipment ) && equipment != self.current_equipment )
-		self equipment_drop( self.current_equipment );
+		self equipment_drop( self.current_equipment, equipment_manager );
 
 	if ( ( equipment == "riotshield_zm" || equipment == "alcatraz_shield_zm" ) && isdefined( self.player_shield_reset_health ) )
 		self [[ self.player_shield_reset_health ]]();
 	else
 		self player_set_equipment_damage( equipment, 0 );
 
-	self equipment_give( equipment );
+	self equipment_give( equipment, equipment_manager );
 }
 
 generate_equipment_unitrigger( classname, origin, angles, flags, radius = 64, script_height = 64, hint, icon, think, moving )
@@ -941,7 +949,7 @@ same_team_placed_equipment( equipment_trigger )
 	return isdefined( equipment_trigger ) && isdefined( equipment_trigger.stub ) && isdefined( equipment_trigger.stub.model ) && isdefined( equipment_trigger.stub.model.owner ) && equipment_trigger.stub.model.owner.pers["team"] == self.pers["team"];
 }
 
-placed_equipment_think( model, equipname, origin, angles, tradius, toffset )
+placed_equipment_think( model, equipname, origin, angles, tradius, toffset, equipment_manager )
 {
 	pickupmodel = spawn( "script_model", origin );
 
@@ -956,7 +964,7 @@ placed_equipment_think( model, equipname, origin, angles, tradius, toffset )
 		{
 			equipment_disappear_fx( pickupmodel.origin, undefined, pickupmodel.angles );
 			pickupmodel delete();
-			self equipment_take( equipname );
+			self equipment_take( equipname, equipment_manager );
 			return undefined;
 		}
 	}
@@ -986,6 +994,7 @@ placed_equipment_think( model, equipname, origin, angles, tradius, toffset )
 	pickupmodel.stub = generate_equipment_unitrigger( "trigger_radius_use", torigin + eq_unitrigger_offset, angles, 0, tradius, 64, hint, equipname, ::placed_equipment_unitrigger_think, isdefined( pickupmodel.canmove ) && pickupmodel.canmove );
 	pickupmodel.stub.model = pickupmodel;
 	pickupmodel.stub.equipname = equipname;
+	pickupmodel.stub.equipment_manager = equipment_manager;
 	pickupmodel.equipname = equipname;
 	pickupmodel thread item_attract_zombies();
 	pickupmodel thread item_watch_explosions();
@@ -1036,6 +1045,8 @@ placed_equipment_unitrigger_think()
 	self endon( "kill_trigger" );
 	self thread watch_player_visibility( self.stub.equipname );
 
+	equipment_manager = self.stub.equipment_manager;
+
 	while ( true )
 	{
 		self waittill( "trigger", player );
@@ -1052,14 +1063,14 @@ placed_equipment_unitrigger_think()
 	}
 }
 
-pickup_placed_equipment( player )
+pickup_placed_equipment( player, equipment_manager )
 {
 	assert( !( isdefined( player.pickup_equipment ) && player.pickup_equipment ) );
 	player.pickup_equipment = 1;
 	stub = self.stub;
 
 	if ( isdefined( player.current_equipment ) && stub.equipname != player.current_equipment )
-		player equipment_drop( player.current_equipment );
+		player equipment_drop( player.current_equipment, equipment_manager );
 
 	if ( is_limited_equipment( stub.equipname ) )
 	{
@@ -1068,14 +1079,14 @@ pickup_placed_equipment( player )
 	}
 
 	if ( isdefined( stub.model ) )
-		stub.model equipment_retrieve( player );
+		stub.model equipment_retrieve( player, equipment_manager );
 
 	thread maps\mp\zombies\_zm_unitrigger::unregister_unitrigger( stub );
 	wait 3;
 	player.pickup_equipment = 0;
 }
 
-dropped_equipment_think( model, equipname, origin, angles, tradius, toffset )
+dropped_equipment_think( model, equipname, origin, angles, tradius, toffset, equipment_manager )
 {
 	pickupmodel = spawn( "script_model", origin );
 
@@ -1090,7 +1101,7 @@ dropped_equipment_think( model, equipname, origin, angles, tradius, toffset )
 		{
 			equipment_disappear_fx( pickupmodel.origin, undefined, pickupmodel.angles );
 			pickupmodel delete();
-			self equipment_take( equipname );
+			self equipment_take( equipname, equipment_manager );
 			return;
 		}
 	}
@@ -1120,7 +1131,7 @@ dropped_equipment_think( model, equipname, origin, angles, tradius, toffset )
 	pickupmodel.stub.model = pickupmodel;
 	pickupmodel.stub.equipname = equipname;
 	pickupmodel.equipname = equipname;
-
+	pickupmodel.stub.equipment_manager = equipment_manager;
 	if ( isdefined( level.equipment_planted ) )
 		self [[ level.equipment_planted ]]( pickupmodel, equipname, self );
 
@@ -1141,6 +1152,8 @@ dropped_equipment_unitrigger_think()
 	self endon( "kill_trigger" );
 	self thread watch_player_visibility( self.stub.equipname );
 
+	equipment_manager = self.stub.equipment_manager;
+
 	while ( true )
 	{
 		self waittill( "trigger", player );
@@ -1148,26 +1161,26 @@ dropped_equipment_unitrigger_think()
 		if ( !player can_pick_up_equipment( self.stub.equipname, self ) )
 			continue;
 
-		self thread pickup_dropped_equipment( player );
+		self thread pickup_dropped_equipment( player, equipment_manager );
 		return;
 	}
 }
 
-pickup_dropped_equipment( player )
+pickup_dropped_equipment( player, equipment_manager )
 {
 	player.pickup_equipment = 1;
 	stub = self.stub;
 
 	if ( isdefined( player.current_equipment ) && stub.equipname != player.current_equipment )
-		player equipment_drop( player.current_equipment );
+		player equipment_drop( player.current_equipment, equipment_manager );
 
-	player equipment_grab( stub.equipname, stub.model );
-	stub.model dropped_equipment_destroy();
+	player equipment_grab( stub.equipname, stub.model, equipment_manager );
+	stub.model dropped_equipment_destroy( undefined, equipment_manager );
 	wait 3;
 	player.pickup_equipment = 0;
 }
 
-dropped_equipment_destroy( gusto )
+dropped_equipment_destroy( gusto, equipment_manager )
 {
 	stub = self.stub;
 
@@ -1181,7 +1194,7 @@ dropped_equipment_destroy( gusto )
 		stub.model delete();
 
 	if ( isdefined( self.original_owner ) && ( is_limited_equipment( stub.equipname ) || maps\mp\zombies\_zm_weapons::is_weapon_included( stub.equipname ) ) )
-		self.original_owner equipment_take( stub.equipname );
+		self.original_owner equipment_take( stub.equipname, equipment_manager );
 
 	thread maps\mp\zombies\_zm_unitrigger::unregister_unitrigger( stub );
 }

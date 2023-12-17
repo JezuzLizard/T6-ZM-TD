@@ -45,6 +45,7 @@ main()
 
 	level thread on_player_connect();
 	level thread command_thread();
+	level thread menu_onmenuresponse();
 
 	print( getDvar( "ztd_gametype" ) );
 	print( getDvar( "ztd_location" ) );
@@ -1568,6 +1569,7 @@ zombie_ignore_equipment( zombie )
 
 menu_init_override()
 {
+	precachestring( &"open_ingame_menu" );
 	game["menu_team"] = "team_marinesopfor";
 	game["menu_changeclass_allies"] = "changeclass";
 	game["menu_initteam_allies"] = "initteam_marines";
@@ -1608,4 +1610,132 @@ menu_init_override()
 	precachestring( &"MP_HOST_ENDED_GAME" );
 	precachestring( &"MP_HOST_ENDGAME_RESPONSE" );
 	level thread maps\mp\gametypes_zm\_zm_gametype::menu_onplayerconnect();
+}
+
+edit_turret_pick_up_cb( args )
+{
+	cmd_name = args[ 0 ];
+}
+
+register_edit_turret_response_callbacks()
+{
+	register_edit_turret_response_callback( "pick_up", ::edit_turret_pick_up_cb );
+	register_edit_turret_response_callback( "sell", ::edit_turret_sell_cb );
+	register_edit_turret_response_callback( "transfer", ::edit_turret_transfer_cb );
+	register_edit_turret_response_callback( "change_targeting", ::edit_turret_change_targeting_cb );
+	register_edit_turret_response_callback( "increase_damage", ::edit_turret_increase_damage_cb );
+	register_edit_turret_response_callback( "increase_firerate", ::edit_turret_increase_firerate_cb );
+	register_edit_turret_response_callback( "increase_turn_speed", ::edit_turret_increase_turn_speed_cb );
+	register_edit_turret_response_callback( "increase_arclimits", ::edit_turret_increase_arclimits_cb );
+	register_edit_turret_response_callback( "increase_shotcount", ::edit_turret_increase_shotcount_cb );
+	register_edit_turret_response_callback( "increase_accuracy", ::edit_turret_increase_accuracy_cb );
+	register_edit_turret_response_callback( "increase_range", ::edit_turret_increase_range_cb );
+	register_edit_turret_response_callback( "increase_reload_speed", ::edit_turret_increase_reload_speed_cb );
+	register_edit_turret_response_callback( "increase_clip_size", ::edit_turret_increase_clip_size_cb );
+	register_edit_turret_response_callback( "reduce_spread", ::edit_turret_reduce_spread_cb );
+}
+
+register_edit_turret_response_callback( response, callback )
+{
+	if ( !isDefined( level.ztd_edit_turret_callbacks ) )
+	{
+		level.ztd_edit_turret_callbacks = [];
+	}
+
+	if ( isDefined( level.ztd_edit_turret_callbacks[ response ] ) )
+	{
+		print( "Duplicate edit_turret callback <" + response + "> added; replacing the current one" );
+	}
+
+	level.ztd_edit_turret_callbacks[ response ] = callback;
+}
+
+execute_edit_turret_response_callback( response )
+{
+	args = strTok( response, " " );
+
+	if ( !isDefined( level.ztd_edit_turret_callbacks[ args[ 0 ] ] ) )
+	{
+		print( "Unknown edit_turret response " + args[ 0 ] );
+		return;
+	}
+
+	self [[ level.ztd_edit_turret_callbacks[ args[ 0 ] ] ]]( args );
+}
+
+register_buy_turret_response_item()
+{
+	register_buy_turret_response_item( "ray_gun_zm", 1000 );
+}
+
+register_buy_turret_response_item( item_name, cost )
+{
+	if ( !isDefined( level.ztd_buy_turret_items ) )
+	{
+		level.ztd_buy_turret_items = [];
+	}
+
+	s = spawnStruct();
+
+	s.cost = cost;
+
+	level.ztd_buy_turret_items[ item_name ] = s;
+}
+
+execute_buy_turret_response_callback( response )
+{
+	args = strTok( response, " " );
+
+	if ( !isDefined( level.ztd_buy_turret_items[ args[ 0 ] ] ) )
+	{
+		print( "Unknown buy_turret response " + args[ 0 ] );
+		return;
+	}
+	
+	if ( self.score < level.ztd_buy_turret_items[ args[ 0 ] ].cost )
+	{
+		print( "Not enough points" );
+		return;
+	}
+
+	equipment_manager = scripts\zm\ztd_equipment_manager::create_new_managed_equipment_for_player( self, "equip_turret_zm", "inventory" );
+
+	self.ztd_current_inventory_equipment_id = equip_manager.id;
+
+	self.custom_turret_weapon = args[ 0 ];
+
+	self maps\mp\zombies\_zm_equipment::equipment_buy( "equip_turret_zm", equipment_manager );
+}
+
+menu_onmenuresponse()
+{
+	const max_response_len = 128;
+	self endon( "disconnect" );
+
+	for (;;)
+	{
+		self waittill( "menuresponse", menu, response );
+
+		if ( response == "" )
+		{
+			continue;
+		}
+
+		if ( response.size > max_response_len )
+		{
+			continue;
+		}
+
+		switch ( menu )
+		{
+			case "edit_turret":
+				self execute_edit_turret_response_callback( response );
+				break;
+			case "buy_turret":
+				self execute_buy_turret_response_callback( response );
+				break;
+			default:
+				break;
+		}
+	}
 }
