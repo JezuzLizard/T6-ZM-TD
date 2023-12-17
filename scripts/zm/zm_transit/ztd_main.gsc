@@ -1614,7 +1614,33 @@ menu_init_override()
 
 edit_turret_pick_up_cb( args )
 {
-	cmd_name = args[ 0 ];
+	self closemenu();
+	self closeingamemenu();
+	self.ztd_edit_turret_unitrigger thread pickup_placed_equipment( self, self.ztd_edit_turret_unitrigger.stub.equipment_manager );
+}
+
+edit_turret_sell_cb( args )
+{
+	self closemenu();
+	self closeingamemenu();
+	self iPrintLn( "Not implemented" );
+}
+
+edit_turret_transfer_cb( args )
+{
+	self closemenu();
+	self closeingamemenu();
+	self iPrintLn( "Not implemented" );
+}
+
+edit_turret_change_targeting_cb( args )
+{
+	self iPrintLn( "Not implemented" );	
+}
+
+edit_turret_increase_damage_cb( args )
+{
+
 }
 
 register_edit_turret_response_callbacks()
@@ -1624,15 +1650,15 @@ register_edit_turret_response_callbacks()
 	register_edit_turret_response_callback( "transfer", ::edit_turret_transfer_cb );
 	register_edit_turret_response_callback( "change_targeting", ::edit_turret_change_targeting_cb );
 	register_edit_turret_response_callback( "increase_damage", ::edit_turret_increase_damage_cb );
-	register_edit_turret_response_callback( "increase_firerate", ::edit_turret_increase_firerate_cb );
-	register_edit_turret_response_callback( "increase_turn_speed", ::edit_turret_increase_turn_speed_cb );
-	register_edit_turret_response_callback( "increase_arclimits", ::edit_turret_increase_arclimits_cb );
-	register_edit_turret_response_callback( "increase_shotcount", ::edit_turret_increase_shotcount_cb );
-	register_edit_turret_response_callback( "increase_accuracy", ::edit_turret_increase_accuracy_cb );
-	register_edit_turret_response_callback( "increase_range", ::edit_turret_increase_range_cb );
-	register_edit_turret_response_callback( "increase_reload_speed", ::edit_turret_increase_reload_speed_cb );
-	register_edit_turret_response_callback( "increase_clip_size", ::edit_turret_increase_clip_size_cb );
-	register_edit_turret_response_callback( "reduce_spread", ::edit_turret_reduce_spread_cb );
+	// register_edit_turret_response_callback( "increase_firerate", ::edit_turret_increase_firerate_cb );
+	// register_edit_turret_response_callback( "increase_turn_speed", ::edit_turret_increase_turn_speed_cb );
+	// register_edit_turret_response_callback( "increase_arclimits", ::edit_turret_increase_arclimits_cb );
+	// register_edit_turret_response_callback( "increase_shotcount", ::edit_turret_increase_shotcount_cb );
+	// register_edit_turret_response_callback( "increase_accuracy", ::edit_turret_increase_accuracy_cb );
+	// register_edit_turret_response_callback( "increase_range", ::edit_turret_increase_range_cb );
+	// register_edit_turret_response_callback( "increase_reload_speed", ::edit_turret_increase_reload_speed_cb );
+	// register_edit_turret_response_callback( "increase_clip_size", ::edit_turret_increase_clip_size_cb );
+	// register_edit_turret_response_callback( "reduce_spread", ::edit_turret_reduce_spread_cb );
 }
 
 register_edit_turret_response_callback( response, callback )

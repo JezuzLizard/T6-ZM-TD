@@ -632,6 +632,8 @@ equipment_drop_to_planted( equipment, player, equipment_manager )
 		assert( !isdefined( player.current_equipment ) );
 	}
 #/
+	equipment_manager.status = "field";
+
 	if ( isdefined( player.current_equipment ) && player.current_equipment == equipment )
 		player equipment_to_deployed( equipment, equipment_manager );
 
@@ -644,6 +646,7 @@ equipment_drop_to_planted( equipment, player, equipment_manager )
 			replacement.owner = player;
 			replacement.original_owner = player;
 			replacement.name = equipment;
+			replacement.equipment_manager = equipment_manager;
 
 			if ( isdefined( level.equipment_planted ) )
 				player [[ level.equipment_planted ]]( replacement, equipment, player );
@@ -709,8 +712,6 @@ equipment_drop( equipment, equipment_manager )
 {
 	if ( isdefined( level.zombie_equipment[equipment].place_fn ) )
 	{
-		self.ztd_equip_manager_inst.status = "field";
-		self.ztd_equip_manager_inst = undefined;
 		equipment_drop_to_planted( equipment, self, equipment_manager );
 /#
 		println( "ZM EQUIPMENT: " + self.name + " drop to planted " + equipment + "\\n" );
@@ -718,7 +719,6 @@ equipment_drop( equipment, equipment_manager )
 	}
 	else if ( isdefined( level.zombie_equipment[equipment].drop_fn ) )
 	{
-		self.ztd_equip_manager_inst.status = "field";
 		if ( isdefined( self.current_equipment ) && self.current_equipment == equipment )
 			self equipment_to_deployed( equipment, equipment_manager );
 
@@ -731,9 +731,9 @@ equipment_drop( equipment, equipment_manager )
 
 			item.owner = undefined;
 			item.damage = self player_get_equipment_damage( equipment );
-			item.equip_manager = self.ztd_equip_manager_inst;
+			equipment_manager.status = "field";
+			item.equip_manager = equipment_manager;
 		}
-		self.ztd_equip_manager_inst = undefined;
 /#
 		println( "ZM EQUIPMENT: " + self.name + " dropped " + equipment + "\\n" );
 #/
@@ -791,7 +791,7 @@ equipment_from_deployed( equipment = "none", equipment_manager )
 	println( "ZM EQUIPMENT: " + self.name + " retrieved " + equipment + "\\n" );
 #/
 	if ( isdefined( self.current_equipment ) && equipment != self.current_equipment )
-		self equipment_drop( self.current_equipment );
+		self equipment_drop( self.current_equipment, equipment_manager );
 
 	assert( self has_deployed_equipment( equipment ) );
 	self.current_equipment = equipment;
@@ -1054,18 +1054,20 @@ placed_equipment_unitrigger_think()
 		if ( !player can_pick_up_equipment( self.stub.equipname, self ) )
 			continue;
 
+		player.ztd_edit_turret_unitrigger = self;
 		player closemenu();
 		player closeingamemenu();
 		player openMenu( game[ "menu_edit_turret" ] );
-
-		//self thread pickup_placed_equipment( player );
-		//return;
 	}
 }
 
 pickup_placed_equipment( player, equipment_manager )
 {
 	assert( !( isdefined( player.pickup_equipment ) && player.pickup_equipment ) );
+
+	equipment_manager.status = "inventory";
+	player.ztd_current_inventory_equipment_id = equipment_manager.id;
+
 	player.pickup_equipment = 1;
 	stub = self.stub;
 

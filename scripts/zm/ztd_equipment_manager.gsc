@@ -1,4 +1,4 @@
-
+#define EQUIPMENT_STARTING_HEALTH 10000
 
 init()
 {
@@ -7,6 +7,21 @@ init()
 	level.ztd_managed_equipment_player_ids = [];
 
 	level thread on_player_connecting();
+}
+
+register_default_special_property( type, property, value )
+{
+	if ( !isDefined( level.ztd_special_property_defaults ) )
+	{
+		level.ztd_special_property_defaults = [];
+	}
+
+	if ( !isDefined( level.ztd_special_property_defaults[ type ] ) )
+	{
+		level.ztd_special_property_defaults[ type ] = [];
+	}
+
+	level.ztd_special_property_defaults[ type ][ property ] = value;
 }
 
 on_player_connecting()
@@ -43,6 +58,9 @@ create_new_managed_equipment_for_player( player, type, status )
 
 	equip_struct.id = id;
 	equip_struct.status = status;
+	equip_struct.health = EQUIPMENT_STARTING_HEALTH;
+
+	equip_struct.special_properties = level.ztd_special_property_defaults[ type ];
 
 	level.ztd_managed_equipment[ player getGUID() + "" ][ id ] = equip_struct;
 
