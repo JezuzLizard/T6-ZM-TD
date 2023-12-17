@@ -1043,8 +1043,12 @@ placed_equipment_unitrigger_think()
 		if ( !player can_pick_up_equipment( self.stub.equipname, self ) )
 			continue;
 
-		self thread pickup_placed_equipment( player );
-		return;
+		player closemenu();
+		player closeingamemenu();
+		player openMenu( game[ "menu_edit_turret" ] );
+
+		//self thread pickup_placed_equipment( player );
+		//return;
 	}
 }
 
@@ -1432,7 +1436,7 @@ debughealth()
 
 	while ( true )
 	{
-		if ( getdvarint( _hash_EB512CB7 ) )
+		if ( getdvarint( #"zombie_equipment_health" ) )
 		{
 			health = self get_item_health();
 			color = ( 1 - health, health, 0 );
@@ -1567,10 +1571,10 @@ attack_item( item )
 	self thread attack_item_stop( item );
 	self thread attack_item_interrupt( item );
 
-	if ( getdvar( _hash_FA9CEAA6 ) == "" )
+	if ( getdvar( #"zombie_equipment_attack_freq" ) == "" )
 		setdvar( "zombie_equipment_attack_freq", "15" );
 
-	freq = getdvarint( _hash_FA9CEAA6 );
+	freq = getdvarint( #"zombie_equipment_attack_freq" );
 	self.doing_equipment_attack = 1;
 	self maps\mp\zombies\_zm_spawner::zombie_history( "doing equipment attack 1 - " + gettime() );
 	self.item = item;

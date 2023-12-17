@@ -462,15 +462,6 @@ riotshield_get_enemies_in_range()
 	cylinder_radius_squared = level.zombie_vars["riotshield_cylinder_radius"] * level.zombie_vars["riotshield_cylinder_radius"];
 	forward_view_angles = self getweaponforwarddir();
 	end_pos = view_pos + vectorscale( forward_view_angles, level.zombie_vars["riotshield_knockdown_range"] );
-/#
-	if ( 2 == getdvarint( _hash_BF480CE9 ) )
-	{
-		near_circle_pos = view_pos + vectorscale( forward_view_angles, 2 );
-		circle( near_circle_pos, level.zombie_vars["riotshield_cylinder_radius"], ( 1, 0, 0 ), 0, 0, 100 );
-		line( near_circle_pos, end_pos, ( 0, 0, 1 ), 1, 0, 100 );
-		circle( end_pos, level.zombie_vars["riotshield_cylinder_radius"], ( 1, 0, 0 ), 0, 0, 100 );
-	}
-#/
 	for ( i = 0; i < zombies.size; i++ )
 	{
 		if ( !isdefined( zombies[i] ) || !isalive( zombies[i] ) )
@@ -610,10 +601,10 @@ attack_shield( shield )
 
 	self.old_origin = self.origin;
 
-	if ( getdvar( _hash_B253DFE7 ) == "" )
+	if ( getdvar( #"zombie_shield_attack_freq" ) == "" )
 		setdvar( "zombie_shield_attack_freq", "15" );
 
-	freq = getdvarint( _hash_B253DFE7 );
+	freq = getdvarint( #"zombie_shield_attack_freq" );
 	self.doing_shield_attack = 1;
 	self.enemyoverride[0] = shield.origin;
 	self.enemyoverride[1] = shield;
@@ -693,15 +684,7 @@ riotshield_active()
 
 riotshield_debug_print( msg, color )
 {
-/#
-	if ( !getdvarint( _hash_BF480CE9 ) )
-		return;
 
-	if ( !isdefined( color ) )
-		color = ( 1, 1, 1 );
-
-	print3d( self.origin + vectorscale( ( 0, 0, 1 ), 60.0 ), msg, color, 1, 1, 40 );
-#/
 }
 
 shield_zombie_attract_func( poi )

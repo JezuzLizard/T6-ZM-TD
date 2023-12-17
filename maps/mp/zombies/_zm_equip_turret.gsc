@@ -23,6 +23,8 @@ init()
 	maps\mp\zombies\_zm_equipment::add_placeable_equipment( "equip_turret_zm", "p6_anim_zm_buildable_turret" );
 	level thread onplayerconnect();
 	maps\mp\gametypes_zm\_weaponobjects::createretrievablehint( "equip_turret", &"ZOMBIE_EQUIP_TURRET_PICKUP_HINT_STRING" );
+
+	level.ztd_turret_ids = [];
 }
 
 onplayerconnect()
@@ -30,9 +32,22 @@ onplayerconnect()
 	for (;;)
 	{
 		level waittill( "connecting", player );
-		player thread delete_turrets_on_disconnect();
+		player thread on_player_disconnect();
+		level.ztd_turret_ids[ player getGUID() + "" ] = 0;
 		player thread setupwatchers();
 		player thread watchturretuse();
+	}
+}
+
+on_player_disconnect()
+{
+	guid = self getGUID();
+	self waittill( "disconnect" );
+	level.ztd_turret_ids[ guid + "" ] = undefined;
+
+	for ( i = 0; i < self.owned_turrets.size; i++ )
+	{
+		cleanup_buildable_turret( self.owned_turrets[ i ] );
 	}
 }
 
@@ -96,15 +111,6 @@ cleanup_buildable_turret( turret_to_delete )
 cleanup_turret( turret_to_delete )
 {
 	turret_to_delete delete();
-}
-
-delete_turrets_on_disconnect()
-{
-	self waittill( "disconnect" );
-	for ( i = 0; i < self.owned_turrets.size; i++ )
-	{
-		cleanup_buildable_turret( self.owned_turrets[ i ] );
-	}
 }
 
 placeturret( origin, angles )
@@ -460,6 +466,9 @@ startturretdeploy2( custom_origin )
 
 	self.owned_turrets[ self.owned_turrets.size ] = turret;
 
+	turret.id = level.ztd_turret_ids[ self getGUID() + "" ];
+
+	level.ztd_turret_ids++;
 	//self.custom_turret_weapon = undefined;
 }
 
