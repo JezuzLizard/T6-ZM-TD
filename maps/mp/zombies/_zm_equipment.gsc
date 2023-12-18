@@ -237,8 +237,11 @@ equipment_take( equipment = self get_player_equipment(), equipment_manager )
 			self switchtoweapon( primaryweapons[0] );
 	}
 
-	scripts\zm\ztd_equipment_manager::delete_managed_equipment_for_player_by_id( self, self.ztd_equip_manager_inst.id );
-	self.ztd_equip_manager_inst = undefined;
+	scripts\zm\ztd_equipment_manager::delete_managed_equipment_for_player( self, equipment_manager );
+	if ( equipment_manager.status == "inventory" )
+	{
+		self.current_inventory_equipment_manager = undefined;
+	}
 }
 
 equipment_give( equipment, equipment_manager )
@@ -256,7 +259,7 @@ equipment_give( equipment, equipment_manager )
 #/
 	curr_weapon = self getcurrentweapon();
 	curr_weapon_was_curr_equipment = self is_player_equipment( curr_weapon );
-	self equipment_take();
+	self equipment_take( undefined, equipment_manager );
 	self set_player_equipment( equipment );
 	self giveweapon( equipment );
 	self setweaponammoclip( equipment, 1 );
@@ -268,7 +271,7 @@ equipment_give( equipment, equipment_manager )
 	if ( isdefined( level.zombie_equipment[equipment].watcher_thread ) )
 		self thread [[ level.zombie_equipment[equipment].watcher_thread ]]();
 
-	self thread equipment_slot_watcher( equipment );
+	self thread equipment_slot_watcher( equipment, equipment_manager );
 	self maps\mp\zombies\_zm_audio::create_and_play_dialog( "weapon_pickup", level.zombie_equipment[equipment].vox );
 }
 
@@ -500,6 +503,35 @@ equipment_onspawnretrievableweaponobject( watcher, player, equipment_manager )
 		}
 	}
 
+	if ( self.name == "equip_turret_zm" )
+	{
+		turrets_owned_by_placer = scripts\zm\ztd_equipment_manager::get_total_equipment_placed_by_player_of_type( player, "equip_turret_zm" );
+
+		total_turrets = 0;
+
+		for ( i = 0; i < level.players.size; i++ )
+		{
+			total_turrets += scripts\zm\ztd_equipment_manager::get_total_equipment_placed_by_player_of_type( level.players[ i ], "equip_turret_zm" );
+		}
+
+		if ( total_turrets > getDvarIntDefault( "sv_max_turrets", 96 ) || turrets_owned_by_placer > getDvarIntDefault( "sv_max_turrets_per_player", 24 ) )
+		{
+			self waittill( "stationary" );
+
+			waittillframeend;
+
+			equip_name = self.name;
+			thread equipment_disappear_fx( self.origin, undefined, self.angles );
+			self delete();
+
+			if ( player hasweapon( equip_name ) )
+				player setweaponammoclip( equip_name, 1 );
+
+			return;
+		}
+
+	}
+
 	equipment = watcher.name + "_zm";
 /#
 	if ( !isdefined( player.current_equipment ) || player.current_equipment != equipment )
@@ -509,7 +541,7 @@ equipment_onspawnretrievableweaponobject( watcher, player, equipment_manager )
 	}
 #/
 	if ( isdefined( player.current_equipment ) && player.current_equipment == equipment )
-		player equipment_to_deployed( equipment );
+		player equipment_to_deployed( equipment, equipment_manager );
 
 	if ( isdefined( level.zombie_equipment[equipment].place_fn ) )
 	{
@@ -554,7 +586,7 @@ equipment_onspawnretrievableweaponobject( watcher, player, equipment_manager )
 			replacement.owner = player;
 			replacement.original_owner = player;
 			replacement.name = self.name;
-			player notify( "equipment_placed", replacement, self.name );
+			player notify( "equipment_placed", replacement, self.name, equipment_manager );
 
 			if ( isdefined( level.equipment_planted ) )
 				player [[ level.equipment_planted ]]( replacement, equipment, self.plant_parent );
@@ -651,7 +683,7 @@ equipment_drop_to_planted( equipment, player, equipment_manager )
 			if ( isdefined( level.equipment_planted ) )
 				player [[ level.equipment_planted ]]( replacement, equipment, player );
 
-			player notify( "equipment_placed", replacement, equipment );
+			player notify( "equipment_placed", replacement, equipment, equipment_manager );
 			player maps\mp\zombies\_zm_buildables::track_buildables_planted( replacement );
 		}
 	}
@@ -1052,7 +1084,14 @@ placed_equipment_unitrigger_think()
 		self waittill( "trigger", player );
 
 		if ( !player can_pick_up_equipment( self.stub.equipname, self ) )
+		{
 			continue;
+		}
+
+		if ( self.stub.equipname != "equip_turret_zm" )
+		{
+			continue;
+		}
 
 		player.ztd_edit_turret_unitrigger = self;
 		player closemenu();
@@ -1066,7 +1105,7 @@ pickup_placed_equipment( player, equipment_manager )
 	assert( !( isdefined( player.pickup_equipment ) && player.pickup_equipment ) );
 
 	equipment_manager.status = "inventory";
-	player.ztd_current_inventory_equipment_id = equipment_manager.id;
+	player.current_inventory_equipment_manager = equipment_manager;
 
 	player.pickup_equipment = 1;
 	stub = self.stub;
@@ -1134,6 +1173,7 @@ dropped_equipment_think( model, equipname, origin, angles, tradius, toffset, equ
 	pickupmodel.stub.equipname = equipname;
 	pickupmodel.equipname = equipname;
 	pickupmodel.stub.equipment_manager = equipment_manager;
+	equipment_manager.unitrigger = pickupmodel;
 	if ( isdefined( level.equipment_planted ) )
 		self [[ level.equipment_planted ]]( pickupmodel, equipname, self );
 

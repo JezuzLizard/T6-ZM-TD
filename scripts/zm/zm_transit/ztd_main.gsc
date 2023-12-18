@@ -1616,7 +1616,13 @@ edit_turret_pick_up_cb( args )
 {
 	self closemenu();
 	self closeingamemenu();
+	if ( isDefined( self.current_inventory_equipment_manager ) )
+	{
+		self iPrintLn( "Cannot pick up turret. Your inventory is full." );
+		return;
+	}
 	self.ztd_edit_turret_unitrigger thread pickup_placed_equipment( self, self.ztd_edit_turret_unitrigger.stub.equipment_manager );
+	self.current_inventory_equipment_manager = self.ztd_edit_turret_unitrigger.stub.equipment_manager;
 }
 
 edit_turret_sell_cb( args )
@@ -1635,12 +1641,12 @@ edit_turret_transfer_cb( args )
 
 edit_turret_change_targeting_cb( args )
 {
-	self iPrintLn( "Not implemented" );	
+	self iPrintLn( "Not implemented" );
 }
 
 edit_turret_increase_damage_cb( args )
 {
-
+	self iPrintLn( "Not implemented" );
 }
 
 register_edit_turret_response_callbacks()
